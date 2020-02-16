@@ -28,6 +28,9 @@ Hexo は nodejs で書かれており、npm でプラグインをインストー
 == Hexo 環境整備
 
 .自分用のメモ
+
+=== インストール
+
 ----
 // Arch Linux の場合は pacman で npm をインストール
 $ sudo pacman -S npm
@@ -58,3 +61,38 @@ $ git remote add origin git@github.com:harre-orz/harre-orz.github.io.git
 // deploy
 $ hexo deploy -g
 ----
+
+
+=== landscape の編集
+
+標準で用意されているテーマ`landscape`の出来はいいのですが、AsciiDoc が生成するコードと相性が悪いようで、CSSの修正が必要でした。
+
+.themes/landscape/source/css/_partial/highlight.styl
+[source,css]
+----
+include::themes/landscape/source/css/_partial/highlight.styl[lines=15..24]
+----
+
+
+=== asciidoc の編集
+
+asciidoc もそのままでは セキュリティレベルが高く `include` が利用できません。レンダリングオプションに `{ safe: "safe" }` を指定します。
+
+.node_modules/hexo-renderer-asciidoc/lib/renderer.js
+----
+include::node_modules/hexo-renderer-asciidoc/lib/renderer.js[lines=20..24]
+----
+
+
+=== gitalk の編集
+
+`gitalk` も、標準の場合はトップページに先頭の記事の中にコメント枠が表示され、それがトップページ用のコメントとして認識されてしまいます。
+そのため、記事ページに移動してからでないとコメントが表示されないように修正が必要でした。
+
+.node_modules/hexo-plugin-gitalk/index.js
+[source,javascript]
+----
+include::node_modules/hexo-plugin-gitalk/index.js[]
+----
+
+結局、細かいところを直しつつというのは変わらない気がしますが。。。
