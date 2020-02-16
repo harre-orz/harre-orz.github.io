@@ -1,0 +1,43 @@
+----
+title: なぞのプロセス portreserve の調査
+date: 2019-04-10 0:40:00
+----
+
+= なぞのプロセス portreserve の調査
+
+とあるLinuxサーバのプロセスを確認したところ portreserve というプロセスが 631 ポートを開いていました。
+portreserve は今まで聞いたことのないサービス名だったので調査したところ「ポートを予約するためのサービス」であるとのこと。
+
+CentOS7 でもパッケージが存在していたので、インストールしてみて man で確認したところ
+
+./etc/portreserve/<ファイル名>
+----
+サービス名称( /etc/services に記載されている名前に限る )
+----
+を設定すれば、予約ができるとありました。
+
+実験として、telnet のポートを予約する場合は、
+
+./etc/portreserve/telnet
+----
+telnet
+----
+と記載して portreserve を再起動すれば portreserve が 23番ポートを bind しました。
+
+nc コマンドで LISTEN しようとしてもエラーになります。
+----
+# nc -l 0.0.0.0 23
+Ncat: bind to 0.0.0.0:23: Address already in use. QUITTING.
+----
+
+次に、このポートを解放する場合は、以下のように Datagram の UNIX-Domainソケットで /var/run/portreserve/socket に接続し、サービス名を送信します。
+----
+# echo -n "telnet" | nc -u -U /var/run/portreserve/socket
+----
+これで telnet で使用する 23番ポート は解放されるので、nc コマンドで LISTEN できるようになります。
+----
+# nc -l 0.0.0.0 23
+
+----
+
+以上が portreserve の使い方らしいのですが、使う場面が全くわかりませんでした。

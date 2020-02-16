@@ -1,0 +1,70 @@
+----
+title: CentOS7にOpenVASのインストール
+date: 2019-02-14 11:22:00
+category: PC tech
+tags: centos7
+----
+
+= CentOS7にOpenVASのインストール
+
+== epelパッケージを使うとエラーになる
+
+epel に含まれる `openvas-{cli,gsa,scanner,manager}` だと、以下の `openvas-nvt-sync` でエラーになる
+
+----
+# openvas-nvt-sync
+[i] This script synchronizes an NVT collection with the 'OpenVAS NVT Feed'.
+[i] The 'OpenVAS NVT Feed' is provided by 'The OpenVAS Project'.
+[i] Online information about this feed: 'http://www.openvas.org/openvas-nvt-feed.html'.
+[i] NVT dir: /var/lib/openvas/plugins
+[w] Could not determine feed version.
+[i] rsync is not recommended for the initial sync. Falling back on http.
+[i] Will use wget
+[i] Using GNU wget: /bin/wget
+[i] Configured NVT http feed: http://www.openvas.org/openvas-nvt-feed-current.tar.bz2
+[i] Downloading to: /tmp/openvas-nvt-sync.Mg9dRJSE2e/openvas-feed-2019-02-14-10478.tar.bz2
+--2019-02-14 11:04:47--  http://www.openvas.org/openvas-nvt-feed-current.tar.bz2
+www.openvas.org (www.openvas.org) をDNSに問いあわせています... 185.135.33.8
+www.openvas.org (www.openvas.org)|185.135.33.8|:80 に接続しています... 接続しました。
+HTTP による接続要求を送信しました、応答を待っています... 301 Moved Permanently
+場所: http://openvas.org [続く]
+--2019-02-14 11:04:48--  http://openvas.org/
+openvas.org (openvas.org) をDNSに問いあわせています... 185.135.33.8
+www.openvas.org:80 への接続を再利用します。
+HTTP による接続要求を送信しました、応答を待っています... 200 OK
+長さ: 12536 (12K) [text/html]
+`/tmp/openvas-nvt-sync.Mg9dRJSE2e/openvas-feed-2019-02-14-10478.tar.bz2' に保存中
+----
+
+ググると `bzip2` をインストールすれば解決するといわれていますが、bzip2 は標準パッケージでインストールしており問題ありません。
+どうも NVT feed のコンテンツが間違っているようでした。
+----
+$ curl -Lsf http://www.openvas.org/openvas-nvt-feed-current.tar.bz2 | file -
+openvas-nvt-feed-current.tar.bz2: HTML document, ASCII text
+----
+
+== atomicorpパッケージを使うと上手くいく
+以下の `atomicorp` が提供しているものを使う
+----
+$ wget http://www6.atomicorp.com/channels/atomic/centos/7/x86_64/RPMS/atomic-release-1.0-21.el7.art.noarch.rpm
+
+$ rpm -ivh atomic-release-1.0-21.el7.art.noarch.rpm
+
+$ yum install openvas
+→大量にパッケージをインストールする
+----
+
+`openvas-setup` で初期設定をすると `dl.greenbone.net` から正しいファイルを取得するようになった。
+
+----
+$ openvas-setup
+...(snip)...
+Updating NVTs....
+--2019-02-14 11:32:17--  http://dl.greenbone.net/community-nvt-feed-current.tar.bz2
+dl.greenbone.net (dl.greenbone.net) をDNSに問いあわせています... 89.146.224.58, 2a01:130:2000:127::d1
+dl.greenbone.net (dl.greenbone.net)|89.146.224.58|:80 に接続しています... 接続しました。
+HTTP による接続要求を送信しました、応答を待っています... 200 OK
+長さ: 23166661 (22M) [application/octet-stream]
+`/tmp/greenbone-nvt-sync.Wk5DpVsPUc/openvas-feed-2019-02-14-14636.tar.bz2' に保存中
+
+----

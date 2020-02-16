@@ -1,0 +1,37 @@
+----
+title: CentOS7のrsyslogが大量にメモリを消費する問題
+date: 2019-04-11 00:00:00
+----
+
+= CentOS7のrsyslogが大量にメモリを消費する問題
+
+https://bugzilla.redhat.com/show_bug.cgi?id=1663267
+
+現在の CentOS7 最新版である rsyslog-8.24-0.34.el7 でメモリリーク問題が上がっています。
+とあるLinuxサーバで、このバグを踏んで、同じように大量にメモリを消費して一時的にswap領域まで使用していました。
+
+一時しのぎとして、rsyslog 公式リポジトリのバージョンを使うことで問題は解消されましたが、このままでは CentOS7 の rsyslog が使えないままなので、この問題を再現させる方法を調べました。
+
+== 再現方法
+
+単純に logger コマンドで /dev/log に書き出すのでは駄目で、*長い文字列* を *可能な限り速く* 書き続ける必要がありました。
+
+以下のC言語のコードで再現しました。
+
+[source,c]
+----
+#include <syslog.h>
+
+int main() {
+  openlog("test", 0, LOG_USER);
+  for(;;)
+    syslog(LOG_ERR, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
+}
+----
+
+早く修正されてほしい。

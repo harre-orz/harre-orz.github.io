@@ -1,0 +1,14 @@
+----
+title: CentOS7の/rootパーミッション
+date: 2019-02-14 17:29:00
+category: PC tech
+tags: CentOS7
+----
+
+= CentOS7の/rootパーミッション
+
+書き込み権限がないけど、root なので書き込みできる。
+----
+# ls -lZd /root
+dr-xr-x---. root root system_u:object_r:admin_home_t:s0 /root
+----

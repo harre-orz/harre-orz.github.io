@@ -1,0 +1,116 @@
+----
+title: journaldを経由せずにrsyslogから/dev/logを使う
+date: 2019-03-16:00
+category: PC tech
+----
+
+= journaldを経由せずにrsyslogから/dev/logを使う
+
+== 背景
+
+CentOS 7 で、とあるサーバを構築し、負荷試験を実施したところ systemd-journald がCPU100%使い切っており、本来のパフォーマンスが発揮されないことが判明しました。
+
+レガシーの syslog() で秒間数万行以上の大量のログを出力しており、systemd-journald プロセスの処理が追いつかず /dev/log ソケットでメッセージが詰まってしまったことが原因でした。
+
+根本的な原因は syslog() で大量のログを出力していることにあるのですが、systemd-journald も結局は rsyslog に転送してログファイルに書き出しているだけなので、ボトルネックになってほしくはありません。
+
+systemd-journald が高負荷になった原因については、詳しくは調べていません。おそらくはメッセージの付属情報の取得やバイナリデータ用のデータベースへの書き込みなどの処理にあると思っています。
+
+また、syslog() は、rsyslog でログファイルに書き込んでいます。そのため、systemd-journald のバイナリログと rsyslog のログファイルの両方に保存していることなるので systemd-journald を経由することは、はっきり言って無駄な処理となっています。
+
+そのため、sytemd-journald を経由せずに直接 rsyslog で /dev/log を使う設定を調査しました。
+
+== 設定
+
+/dev/log は Datagram ベースの UNIX-domain socket です。
+
+----
+# fuser -v /dev/log
+                     USER        PID ACCESS COMMAND
+/dev/log
+                     root          1 F.... systemd
+                     root       6277 F.... systemd-journal
+
+# netstat -x | grep dev
+unix  3      [ ]         DGRAM                    103043   /dev/log
+----
+
+systemd-journald.socket ファイルの /dev/log をコメントアウトします。
+
+./usr/lib/systemd/system/systemd-journald.socket
+----
+[Socket]
+ListenStream=/run/systemd/journal/stdout
+ListenDatagram=/run/systemd/journal/socket
+#ListenDatagram=/dev/log  #コメントアウト
+----
+
+rsyslog の SystemLogSocketName を設定を変更します。
+
+./etc/rsyslog.d/listen.conf
+----
+#$SystemLogSocketName /run/systemd/journal/syslog  #コメントアウト
+$SystemLogSocketName /dev/log                      #デフォルト値なので記述しなくてもいいのですが、書いたほうが分かりやすいと思います
+----
+
+
+rsyslog の設定を変更します。
+
+./etc/rsyslog.conf
+----
+$ModLoad imuxsock                    #アンコメント
+#$ModLoad imjournal                  #コメントアウト
+$OmitLocalLogging off                #off に変更
+#$IMJournalStateFile imjournal.state #コメントアウト
+
+#$imjournalRatelimitInterval 0       #記述した場合はコメントアウト
+#$imjournalRatelimitBurst 0          #記述した場合はコメントアウト
+----
+- 詳細 https://www.rsyslog.com/doc/v8-stable/configuration/modules/imuxsock.html
+
+
+systemd-journald と rsyslogd の再起動します。
+
+----
+# systemctl restart rsyslog
+# systemctl status rsyslog
+→status でエラーがないことを確認。
+
+# systemctl restart systemd-journald
+# systemctl status systemd-journald
+→status でエラーがないことを確認。
+----
+
+/dev/log を掴んでいるプロセスを確認します。
+
+----
+# fuser -v /dev/log
+                     USER        PID ACCESS COMMAND
+/dev/log
+                     root          1 F.... systemd
+                     root       9218 F.... rsyslog
+                     root       9234 F.... systemd-journal
+----
+
+systemd-jounral が /dev/log を掴んだままであれば、OS再起動をします。
+
+----
+# reboot
+
+... 再起動後...
+
+# fuser -v /dev/log
+                     USER        PID ACCESS COMMAND
+/dev/log
+                     root          1 F.... systemd
+                     root        128 F.... rsyslog
+----
+
+これで rsyslog で直接 /dev/log を取得できるようになりました。
+
+sytemd-journald 自体のログ収集は止めていないため モダンな /run/systemd/journal/socket ソケットからのログは journalctl で検索可能です。
+
+
+== 補足
+
+この方法は、おそらく CentOS 7 でしか利用できません。別のディストビューションの場合、/dev/log は /run/systemd/journal/dev-log のシンボリックリンクになっている場合があります。

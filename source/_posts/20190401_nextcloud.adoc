@@ -1,0 +1,91 @@
+----
+title: docker+nextcloudで構築するときDBを初期化できないときの対処法
+date: 2019-04-01:00
+category: PC tech
+tags: nextcloud
+----
+
+= docker+nextcloudで構築するときDBを初期化できないときの対処法
+
+
+docker-compose で、nextcloud と postgresql を以下のように定義したが起動しなかった。
+
+.docker-compose.yml
+----
+version: '3'
+services:
+  app:
+    image: nextcloud:15.0.5
+    ports:
+      - 8080:80
+    depends_on:
+      - db
+    volumes:
+      - nextcloud:/var/www/html
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=secret
+      - NEXTCLOUD_ADMIN_USER=admin
+      - NEXTCLOUD_ADMIN_PASSWORD=admin
+    restart: always
+
+  db:
+    image: postgres:9.6
+    restart: always
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=secret
+
+volumes:
+  nextcloud:
+    driver: local
+  postgres:
+    driver: local
+----
+
+コンテナの出力には、以下のような permission denied for database となっているが、
+----
+db_1   | 2019-04-01 14:24:55.443 UTC [71] FATAL:  permission denied for database "nextcloud"
+db_1   | 2019-04-01 14:24:55.443 UTC [71] DETAIL:  User does not have CONNECT privilege.
+----
+postgres のコンテナに nextcloud というデータベースで postgres ユーザがスーパーユーザでアクセスできているように見える。
+
+----
+$ docker-compose exec -it -u postgres db /bin/bash
+$ psql nextcloud postgres
+nextcloud=# \du
+                                    List of roles
+ Role name  |                         Attributes                         | Member of
+------------+------------------------------------------------------------+-----------
+ oc_admin   | Create DB                                                  | {}
+ oc_admin10 | Create DB                                                  | {}
+ oc_admin11 | Create DB                                                  | {}
+ oc_admin12 | Create DB                                                  | {}
+ oc_admin13 | Create DB                                                  | {}
+ oc_admin14 | Create DB                                                  | {}
+ oc_admin15 | Create DB                                                  | {}
+ oc_admin16 | Create DB                                                  | {}
+ oc_admin2  | Create DB                                                  | {}
+ oc_admin3  | Create DB                                                  | {}
+ oc_admin4  | Create DB                                                  | {}
+ oc_admin5  | Create DB                                                  | {}
+ oc_admin6  | Create DB                                                  | {}
+ oc_admin7  | Create DB                                                  | {}
+ oc_admin8  | Create DB                                                  | {}
+ oc_admin9  | Create DB                                                  | {}
+ postgres   | Superuser, Create role, Create DB, Replication, Bypass RLS | {}
+
+nextcloud=# \q
+----
+
+このデータベースを削除することで nextcloud 側で自動的にデータベースを作成してくれた。
+----
+$ dropdb nextcloud postgres
+----
+
+nextcloud のコンテナの動作が今後変わると修正されるかもしれない。

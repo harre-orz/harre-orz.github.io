@@ -1,0 +1,61 @@
+----
+title: Pelican で asciidoc を使う方法
+date: 2019-02-14 01:28:00
+category: PC tech
+----
+
+= Pelican で asciidoc を使う方法
+
+`pelican-quickstart` で初期セットアップする。細かい指定は割愛する
+
+`pelican-plugins` をリポジトリから取得する
+
+----
+git clone --recursive https://github.com/getpelican/pelican-plugins
+----
+
+`pelicanconf.py` にプラグインのパスと `asciidoc_reader` を記述する
+
+.pelicanconf.py
+----
+PLUGIN_PATHS = ['path/to/pelican-plugins']
+PLUGINS = ['asciidoc_reader']
+----
+
+`/contents/yyyy.adoc` ファイルに適当な記事を書いて `make html` する
+
+== 日本語が変換できないとき
+
+.以下のようなエラーになって日本語が変換できなかった
+----
+ERROR: Could not process ./yyyy.adoc
+  | UnicodeEncodeError: 'latin-1' codec can't encode character '\u3067' in position 8: ordinal not in range(256)
+----
+
+.pelican_plugins/asciidoc_reader/asciidoc_reader.py の指定が間違っているので修正
+[source,diff]
+----
+diff --git a/asciidoc_reader/asciidoc_reader.py b/asciidoc_reader/asciidoc_reader.py
+index afcfb5a..0ad2ae5 100644
+--- a/asciidoc_reader/asciidoc_reader.py
++++ b/asciidoc_reader/asciidoc_reader.py
+@@ -29,7 +29,7 @@ def fix_unicode(val):
+         val = unicode(val.decode("utf-8"))
+     else:
+         # This fixes an issue with character substitutions, e.g. '<F1>' to 'ñ'.
+-        val = str.encode(val, "latin-1").decode("utf-8")
++        val = str.encode(val, "utf-8").decode("utf-8")
+     return val
+
+ ALLOWED_CMDS = ["asciidoc", "asciidoctor"]
+----
+
+
+== コンテンツが表示されないとき
+
+コマンドがエラーになっても無視されるので気づきにくいが、`asciidoc` か `asciidoctor` がインストールしていなかったため、コンテンツが生成できていなかった。asciidoctor をいつも使っているので以下を記述する。
+
+.pelicanconf.py
+----
+ASCIIDOC_CMD = 'asciidoctor'
+----
