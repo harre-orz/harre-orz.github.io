@@ -1,7 +1,7 @@
 ----
 title: Pelican で asciidoc を使う方法
-date: 2019-02-14 01:28:00
-category: PC tech
+date: 2019-02-14
+tags: [ Pelican, AsciiDoc ]
 ----
 
 = Pelican で asciidoc を使う方法

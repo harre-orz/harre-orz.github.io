@@ -1,8 +1,7 @@
 ----
 title: docker+nextcloudで構築するときDBを初期化できないときの対処法
-date: 2019-04-01:00
-category: PC tech
-tags: nextcloud
+date: 2019-04-01
+tags: [ NextCloud, Docker, PostgreSQL ]
 ----
 
 = docker+nextcloudで構築するときDBを初期化できないときの対処法

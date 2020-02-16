@@ -1,6 +1,7 @@
 ----
 title: なぞのプロセス portreserve の調査
-date: 2019-04-10 0:40:00
+date: 2019-04-10
+tags: [ CentOS 7 ]
 ----
 
 = なぞのプロセス portreserve の調査

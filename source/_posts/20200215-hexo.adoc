@@ -1,12 +1,63 @@
 ----
 title: 静的サイトジェネレータをPelicanからHexoに切り替えた
-date: 2020-02-16 12:52:00
-category: 静的サイトジェネレータ
+date: 2020-02-16
+tags: [ Pelican, Hexo, AsciiDoc, GitHub Pages ]
 ----
 
-= 背景
+== 背景
 
 pelicanを採用した理由は python で書かれており、何か問題があってもトラブルシュートができるからでした。
-実際、AsciiDocのプラグインが文字化けしたり正常に機能しないことが多々あり、自分の環境で動くように微調整したりしました。
+実際、AsciiDocのプラグインが文字化けしたり正常に機能しないことが多々あり、自分の環境で動くように調整する必要がありました。
 
-はじめて GitHub Pages のブロクを書いていて、コメントができないのは不便だなーと思いつつ、何も調べないまま
+また、GitHub Pages のブロクを書いていて、コメントができないのは不便だなーと思いつつ、何も調べないまま Pelican を採用したのも失敗でした。
+Pelican でも Disqus であれば、JS埋め込みで対応できるようですが、あまり標準で対応している感じではありませんでした。
+
+そのため、Pelican をやめて Hexo に切り替えることにしました。
+
+Hexo は nodejs で書かれており、npm でプラグインをインストールすることで様々な機能に対応することができます。
+もちろん AsciiDoc にも対応したプラグインもあります。
+
+僕は、以下のプラグインを入れています。
+
+- hexo-cli
+- hexo-renderer-asciidoc
+- hexo-plugin-gitalk
+- hexo-deployer-git
+
+
+== Hexo 環境整備
+
+.自分用のメモ
+--
+// Arch Linux の場合は pacman で npm をインストール
+$ sudo pacman -S npm
+
+// hexo-cli をインストール
+$ sudo npm install hexo-cli -g
+
+// サイトのプロジェクトフォルダを作成
+$ hexo init harre-orz.github.io
+$ cd harre-orz.github.io
+
+// 依存パッケージをインストール
+$ npm install
+
+// AsciiDoc をインストール
+$ npm install hexo-renderer-asciidoc --save
+
+// gitalk コメントを使うためにをインストール
+$ npm install hexo-plugin-gitalk --save
+
+// Github Pages にデプロイするためのプラグインをインストール
+$ npm install hexo-deployer-git --save
+
+// git の初期化
+$ git init
+$ git remote add origin git@github.com:harre-orz/harre-orz.github.io.git
+
+// deploy
+$ hexo deploy -g
+--
+
+----
+----
