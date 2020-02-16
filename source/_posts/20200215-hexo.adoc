@@ -28,7 +28,7 @@ Hexo は nodejs で書かれており、npm でプラグインをインストー
 == Hexo 環境整備
 
 .自分用のメモ
---
+----
 // Arch Linux の場合は pacman で npm をインストール
 $ sudo pacman -S npm
 
@@ -57,7 +57,4 @@ $ git remote add origin git@github.com:harre-orz/harre-orz.github.io.git
 
 // deploy
 $ hexo deploy -g
---
-
-----
 ----
