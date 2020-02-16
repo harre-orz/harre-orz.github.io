@@ -110,4 +110,5 @@ plugins:
     owner: 'harre-orz'
     admin:
       - 'harre-orz'
+    id: 'location.pathname'
     distractionFreeMode: false
