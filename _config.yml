@@ -104,7 +104,6 @@ deploy:
 
 plugins:
   gitalk:
-    enable: false
     clientID: '552cbd212e71c5d6c3e0'
     clientSecret: '4402dc0c5c3a368fca4f5ecfe4fa69290a429207'
     repo: 'harre-orz.github.io'
