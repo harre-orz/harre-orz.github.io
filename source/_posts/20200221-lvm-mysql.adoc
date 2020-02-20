@@ -1,0 +1,142 @@
+----
+title: MySQLのデータベースごとにディスク容量制限を簡単にしたい
+date: 2020-02-21
+tags: [ MySQL, LVM, Ansible ]
+----
+
+== モチベーション
+
+MySQLのデータベース単位で quota のようなディスク容量制限をしたかったのですが、MySQL にはそういった機能がないようでした。
+しかし、MySQL はデータベースごとにフォルダが別れているので、各フォルダごとにディスクをマウントすれば容量の制限ができると思い、
+LVM で小さな領域を作成して、データベースのフォルダ位置にマウントしてみたところ、制限ができたのでこの方法を採用しました。
+
+データベースを作成する度に、すべて手作業で実施していたらいつかはLVMの操作ミスでデータが喪失する恐れがありました。
+また、レプリカしているDBの場合にレプリカ先にも同じマウントポイントを指定する必要があり、作業が漏れやすいという問題もありました。
+そのため ansible のプレイブックを使って、すべての作業を 1コマンド で実行できるようにしました。
+
+
+== プレイブック
+
+最新の ansible には、parted コマンド、LVM操作コマンド、mkfs系コマンド、mysql操作コマンドが用意されているので、これらを組み合わせた以下のプレイブックを作成します。
+
+.task.yml
+[source,yaml]
+----
+---
+# parted で 基本パーティション 1 を作成する
+- name: partition
+  parted:
+    device: "{{ item }}"
+    number: 1
+    state: present
+    flags: [ lvm ]
+  with_items: "{{ userctl_disks }}"
+
+# 物理ボリュームとボリュームグループを作成する
+- name: create physical volume and volume group
+  lvg:
+    vg: rdb
+    pvs: "{{ userctl_disks | map('regex_replace', '$', '1') | list }}"
+    pesize: '32'
+
+# 論理ボリュームを作成する
+- name: create logical volume
+  lvol:
+    vg: rdb
+    lv: "{{ item.db_name }}"
+    size: "{{ item.db_size }}"
+  with_items: "{{ userctl_users }}"
+
+# XFSでフォーマットする
+- name: format for xfs
+  filesystem:
+    dev: "/dev/rdb/{{ item.db_name }}"
+    fstype: xfs
+    resizefs: yes
+  with_items: "{{ userctl_users }}"
+
+# マウントポイントを設定する
+- name: mount point
+  mount:
+    src: "/dev/rdb/{{ item.db_name }}"
+    path: "/var/lib/mysql/{{ item.db_name }}"
+    fstype: xfs
+    opts: 'defaults,discard'
+    state: mounted
+  with_items: "{{ userctl_users }}"
+
+# マウントポイントの権限を変更する
+- name: change owner and permission
+  file:
+    path: "/var/lib/mysql/{{ item.db_name }}"
+    state: directory
+    owner: mysql
+    group: mysql
+    mode: '0700'
+  with_items: "{{ userctl_users }}"
+
+- name: install pymysql
+  pip
+    name: pymysql
+
+# データベースを作成する
+- name: mysql create db
+  mysql_db:
+    login_user: root
+    name: "{{ item.db_name }}"
+  with_items: "{{ userctl_users }}"
+
+# データベースユーザを作成して、権限を指定する
+- name: mysql create user
+  mysql_user:
+    login_user: root
+    name: "{{ item.db_user }}"
+    host: "{{ item.db_host | default('localhost') }}"
+    password: "{{ item.db_pass }}"
+    priv: "{{ item.db_name }}.*:{{ item.db_priv | default('ALL') }}"
+    state: "{{ item.db_state | default('present') }}"
+  with_items: "{{ userctl_users }}"
+
+----
+
+次に、実行するための変数を定義した以下のプレイブックを作成します。
+
+.main.yml
+[source,yaml]
+----
+---
+- hosts: localhost
+  become: yes
+  vars:
+    # 物理ディスク
+    userctl_disks:
+    - /dev/sdb
+    #- /dev/sdc
+    #- /dev/sdd
+
+    # ユーザ用データベース領域
+    # - db_name: データベース名は使用できない文字が多いので注意
+    #   db_host: 接続許可するIPアドレス(ホスト名)。省略すると 'localhost' になる
+    #   db_user: ユーザ名は使用できない文字が多いので注意
+    #   db_pass: パスワード
+    #   db_size: '1G' とか '256M' とか
+    #   db_priv: 'ALL' とか 'SELECT' とか。省略すると 'ALL' になる
+    #   db_state: 'absent' を書くとアカウントが無効になる。※データは消えない
+    userctl_users:
+    - db_name: miku
+      db_host: '%'
+      db_user: 'hatsune-miku'
+      db_pass: secret
+      db_size: 32M
+      db_priv: 'ALL'
+
+  tasks:
+  - include: "task.yml"
+----
+
+今後は、このプレイブックの変数に、追加・編集して ansible-playbook を実行するだけになったので、作業が簡単になりました。
+
+== 注意事項
+
+なお、LVMを使っての容量制限は。詳細まで検証しているわけではないです。最悪の場合データベースを破壊してしまうかもしれません。
+この方法について、ご指摘がある方はコメントでお知らせください。
