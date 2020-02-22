@@ -1,0 +1,304 @@
+----
+title: CentOS7のLXCでCentOS6を非特権ユーザで起動させる
+date: 2020-02-22
+tags: [ LXC, CentOS 7, CentOS 6 ]
+----
+
+== はじめに
+
+この記事は、とある調査の結果をまとめたものであって、一般には参考にならない内容になっているのでご注意ください。
+
+
+== CentOS 7で特権ユーザ
+
+CentOS 7の epel に含まれる lxc 1.0.11 では、非特権機能がまともに動きません。素直に lxc-3.0.x の最新安定版のソースコードを公式からダウンロードしてビルド footnote:[LXC は Canonical社が支援しているだけあり RPM はありません。] します。
+
+bridge の設定をします。
+
+----
+# yum install bridge-utils
+# brctl addbr lxcbr0
+----
+
+非特権ユーザの設定をします。
+
+./etc/subuid
+----
+root:100000:65536
+----
+
+./etc/subgid
+----
+root:100000:65536
+----
+
+./etc/lxc/lxc-usernet
+----
+root veth lxcbr0 10
+----
+
+CentOS 6は、initプロセスが大きく違うので、手始めに CentOS 7 のコンテナを作成して特権ユーザで起動できることを確認します。
+----
+# lxc-create -n centos7 -t centos -- -R 7
+
+# lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos7   STOPPED 0         -      -    -    false
+----
+
+起動しようとすると、以下の `No space left on device` というエラーになります。
+
+----
+# lxc-start -n centos7 -F
+lxc-start: centos7: cgroups/cgfsng.c: __do_cgroup_enter: 1498 No space left on device - Failed to enter cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7/cgroup.procs"
+lxc-start: centos7: start.c: __lxc_start: 1992 Failed to enter monitor cgroup
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options
+----
+
+/sys/fs/cgroup の容量は十分に空いおり容量不足ではないため、原因を調べたところ以下のフラグを 1 にする必要がありました。
+
+----
+echo 1 >> `/sys/fs/cgroup/cpuset/cgroup.clone_children`
+----
+
+ただし、必ず lxc-start を実行する前に指定しなければいけません。もし、１度でも lxc-start でコンテナを起動してしまった場合、cgroup が不完全な状態で作成されてしまうので二度と起動 footnote:[OS再起動で直ります] できなくなります。
+
+事実、２回目以降はエラーは以下のように `File exists` なります。
+----
+lxc-start: centos7: cgroups/cgfsng.c: mkdir_eexist_on_last: 1277 File exists - Failed to create directory "/sys/fs/cgroup/cpuset//lxc.monitor/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: monitor_create_path_for_hierarchy: 1298 Failed to create cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: cgfsng_monitor_create: 1388 Failed to create cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: __do_cgroup_enter: 1498 No space left on device - Failed to enter cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7-1/cgroup.procs"
+lxc-start: centos7: start.c: __lxc_start: 1992 Failed to enter monitor cgroup
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options
+----
+
+これで CentOS 7 が起動できました。
+----
+# brctl addbr lxcbr0
+# echo 1 >> `/sys/fs/cgroup/cpuset/cgroup.clone_children`
+
+# lxc-start --name centos7 -F
+lxc-start: centos7: start.c: proc_pidfd_open: 1607 Function not implemented - Failed to send signal through pidfd
+systemd 219 running in system mode. (+PAM +AUDIT +SELINUX +IMA -APPARMOR +SMACK +SYSVINIT +UTMP +LIBCRYPTSETUP +GCRYPT +GNUTLS +ACL +XZ +LZ4 -SECCOMP +BLKID +ELFUTILS +KMOD +IDN)
+Detected virtualization lxc.
+Detected architecture x86-64.
+
+Welcome to CentOS Linux 7 (Core)!
+----
+
+== CentOS 7で非特権ユーザ
+
+コンテナが特権か非特権か？は、 lxc-ls コマンド結果の `UNPRIVILEGED` で確認することができます。
+現在は `false` となっており特権ユーザであることを表しています。
+
+----
+# lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos7   STOPPED 0         -      -    -    false
+----
+非特権ユーザにするには、コンテナの設定ファイルに以下の2行を追記します。
+
+./usr/local/var/lib/lxc/centos7/config
+----
+lxc.idmap = u 0 100000 65536
+lxc.idmap = g 0 100000 65536
+----
+
+設定が正しければ `UNPRIVILEGED` が `true` に変わります。
+----
+# lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos7   STOPPED 0         -      -    -    false
+----
+
+TIP: コンテナが起動中の場合は `true` になりません。一度コンテナを停止させます。
+
+起動しようとすると、以下の `Failed to clone process in new user namespace` というエラーになります。
+原因は、CentOS 7 の現在の最新のカーネル 3.10.0-1062.12.1.el7.x86_64 では、非特権ユーザに対応していないためです。
+
+----
+# lxc-start -n centos7
+lxc-start: centos7: cgroups/cgfsng.c: mkdir_eexist_on_last: 1277 File exists - Failed to create directory "/sys/fs/cgroup/systemd//lxc.payload/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: container_create_path_for_hierarchy: 1317 Failed to create cgroup "/sys/fs/cgroup/systemd//lxc.payload/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: cgfsng_payload_create: 1454 Failed to create cgroup "/sys/fs/cgroup/systemd//lxc.payload/centos7"
+lxc-start: centos7: start.c: lxc_spawn: 1737 Invalid argument - Failed to clone a new set of namespaces
+lxc-start: centos7: start.c: __lxc_start: 2019 Failed to spawn container "centos7"
+lxc-start: centos7: conf.c: userns_exec_1: 4311 Failed to clone process in new user namespace
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options
+----
+
+そのため、カーネルを 3.12 以上に上げます。CentOS 7には、都合のいいバージョンは落ちていないため elrepo で最新のカーネルをインストールします。
+
+----
+# rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+# rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-2.el7.elrepo.noarch.rpm
+# yum install --enablerepo=elrepo-kernel kernel-ml
+----
+
+僕の場合は 5.5.5-1 が落ちてきたので、OS再起動してカーネルを変更してからもう一度コンテナを起動させます。
+しかし、rootfs が `Permission denied` となり、まだ起動できません。
+----
+# uname -r
+5.5.5-1.el7.elrepo.x86_64
+
+# brctl addbr lxcbr0
+# echo 1 >> `/sys/fs/cgroup/cpuset/cgroup.clone_children`
+
+# lxc-start --name centos7 -F
+lxc-start: centos7: storage/dir.c: dir_mount: 198 Permission denied - Failed to mount "/usr/local/var/lib/lxc/centos7/rootfs" on "/usr/local/lib/lxc/rootfs"
+lxc-start: centos7: conf.c: lxc_mount_rootfs: 1328 Failed to mount rootfs "/usr/local/var/lib/lxc/centos7/rootfs" onto "/usr/local/lib/lxc/rootfs" with options "(null)"
+lxc-start: centos7: conf.c: lxc_setup_rootfs_prepare_root: 3393 Failed to setup rootfs for
+lxc-start: centos7: conf.c: lxc_setup: 3496 Failed to setup rootfs
+lxc-start: centos7: start.c: do_start: 1299 Failed to setup container "centos7"
+lxc-start: centos7: sync.c: __sync_wait: 62 An error occurred in another process (expected sequence number 5)
+lxc-start: centos7: start.c: lxc_abort: 1103 Function not implemented - Failed to send SIGKILL to 2809
+lxc-start: centos7: start.c: __lxc_start: 2019 Failed to spawn container "centos7"
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options
+----
+
+rootfs の上位ディレクトリの権限を変更して、他人でも閲覧できるようにします。　
+----
+# ls -ld /usr/local/var/lib/lxc/centos7
+drwxrwx--- 3 root root 55 Feb 22 20:48 /usr/local/var/lib/lxc/centos7
+
+# chmod 775 /usr/local/var/lib/lxc/centos7
+
+# ls -ld /usr/local/var/lib/lxc/centos7
+drwxrwxr-x 3 root root 55 Feb 22 20:48 /usr/local/var/lib/lxc/centos7
+----
+
+これで CentOS 7 が非特権ユーザで起動できました。
+----
+# lxc-start --name centos7 -F
+lxc-start: centos7: start.c: proc_pidfd_open: 1607 Function not implemented - Failed to send signal through pidfd
+systemd 219 running in system mode. (+PAM +AUDIT +SELINUX +IMA -APPARMOR +SMACK +SYSVINIT +UTMP +LIBCRYPTSETUP +GCRYPT +GNUTLS +ACL +XZ +LZ4 -SECCOMP +BLKID +ELFUTILS +KMOD +IDN)
+Detected virtualization lxc.
+Detected architecture x86-64.
+
+Welcome to CentOS Linux 7 (Core)!
+----
+
+
+== CentOS 6で非特権ユーザ
+
+
+CentOS 6のコンテナを作成します。　
+
+----
+# lxc-create -n centos6 -t centos -- -R 6
+----
+
+まだ、特権ユーザであるため lxc.idmap の設定を追記します。
+
+./usr/local/var/lib/lxc/centos6/config
+----
+lxc.idmap = u 0 100000 65536
+lxc.idmap = g 0 100000 65536
+----
+
+非特権ユーザにできたので、起動してみます。
+----
+# chmod 755 /usr/local/var/lib/lxc/centos6
+
+# lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos6   STOPPED 0         -      -    -    true
+centos7   RUNNING 0         -      -    -    true
+
+# lxc-start --name centos6 -F
+init: lxc-sysinit pre-start process (2) terminated with status 1
+cat: /proc/self/attr/current: Invalid argument
+                Welcome to CentOS
+----
+
+起動はできましたが、途中で止まってしまいます。init.d の時代は 非root で実行することを考慮していないためです。
+
+とりあえず、起動スクリプトをすべて止めます。
+----
+# chroot /usr/local/var/lib/lxc/centos6/rootfs/
+
+# chkconfig --list
+crond           0:off   1:off   2:on    3:on    4:on    5:on    6:off
+iptables        0:off   1:off   2:on    3:on    4:on    5:on    6:off
+netconsole      0:off   1:off   2:off   3:off   4:off   5:off   6:off
+netfs           0:off   1:off   2:off   3:on    4:on    5:on    6:off
+network         0:off   1:off   2:on    3:on    4:on    5:on    6:off
+rdisc           0:off   1:off   2:off   3:off   4:off   5:off   6:off
+restorecond     0:off   1:off   2:off   3:off   4:off   5:off   6:off
+rsyslog         0:off   1:off   2:on    3:on    4:on    5:on    6:off
+saslauthd       0:off   1:off   2:off   3:off   4:off   5:off   6:off
+sendmail        0:off   1:off   2:on    3:on    4:on    5:on    6:off
+sshd            0:off   1:off   2:on    3:on    4:on    5:on    6:off
+udev-post       0:off   1:on    2:off   3:off   4:off   5:off   6:off
+
+# chkconfig crond off
+# chkconfig iptables off
+# chkconfig netfs off
+# chkconfig network off
+# chkconfig rsyslog off
+# chkconfig sendmail off
+# chkconfig sshd off
+
+# echo > /etc/rc.d/rc.sysinit
+----
+
+不要な /dev/tty も消しておきます。これをやっておかないと1コンテナあたり無駄なプロセスが 6 個も起動してしまいます。
+
+./etc/sysconfig/init
+----
+ACTIVE_CONSOLES=/dev/tty[1-6]
+↓
+ACTIVE_CONSOLES=
+----
+
+また /etc/mtab も作成する必要があります。自分で書くのが面倒だったので、特権ユーザで起動させて rc.sysinit で生成したものを利用しました。
+
+./etc/mtab
+----
+# cat /etc/mtab
+sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+devtmpfs /dev devtmpfs rw,nosuid,size=474792k,nr_inodes=118698,mode=755 0 0
+securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec,relatime 0 0
+tmpfs /dev/shm tmpfs rw,nosuid,nodev 0 0
+devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 0 0
+tmpfs /run tmpfs rw,nosuid,nodev,mode=755 0 0
+tmpfs /sys/fs/cgroup tmpfs ro,nosuid,nodev,noexec,mode=755 0 0
+cgroup /sys/fs/cgroup/systemd cgroup rw,nosuid,nodev,noexec,relatime,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd 0 0
+pstore /sys/fs/pstore pstore rw,nosuid,nodev,noexec,relatime 0 0
+cgroup /sys/fs/cgroup/memory cgroup rw,nosuid,nodev,noexec,relatime,memory 0 0
+cgroup /sys/fs/cgroup/blkio cgroup rw,nosuid,nodev,noexec,relatime,blkio 0 0
+cgroup /sys/fs/cgroup/net_cls,net_prio cgroup rw,nosuid,nodev,noexec,relatime,net_cls,net_prio 0 0
+cgroup /sys/fs/cgroup/freezer cgroup rw,nosuid,nodev,noexec,relatime,freezer 0 0
+cgroup /sys/fs/cgroup/pids cgroup rw,nosuid,nodev,noexec,relatime,pids 0 0
+cgroup /sys/fs/cgroup/cpuset cgroup rw,nosuid,nodev,noexec,relatime,cpuset,clone_children 0 0
+cgroup /sys/fs/cgroup/cpu,cpuacct cgroup rw,nosuid,nodev,noexec,relatime,cpu,cpuacct 0 0
+cgroup /sys/fs/cgroup/rdma cgroup rw,nosuid,nodev,noexec,relatime,rdma 0 0
+cgroup /sys/fs/cgroup/hugetlb cgroup rw,nosuid,nodev,noexec,relatime,hugetlb 0 0
+cgroup /sys/fs/cgroup/perf_event cgroup rw,nosuid,nodev,noexec,relatime,perf_event 0 0
+cgroup /sys/fs/cgroup/devices cgroup rw,nosuid,nodev,noexec,relatime,devices 0 0
+configfs /sys/kernel/config configfs rw,relatime 0 0
+/dev/mapper/centos-root / xfs rw,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=26,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=19458 0 0
+debugfs /sys/kernel/debug debugfs rw,relatime 0 0
+hugetlbfs /dev/hugepages hugetlbfs rw,relatime,pagesize=2M 0 0
+mqueue /dev/mqueue mqueue rw,relatime 0 0
+/dev/sda1 /boot xfs rw,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+tmpfs /run/user/1000 tmpfs rw,nosuid,nodev,relatime,size=97784k,mode=700,uid=1000,gid=1000 0 0
+----
+
+これで CentOS 6 が非特権ユーザで起動できました。
+----
+# lxc-start --name centos6
+----
+お疲れ様でした。
+
+
+== 補足
+
+検証している中で LXC の動作が途中で失敗すると `/sys/fs/cgroup` にコンテナのゴミが残り再起動できなくなる問題が度々発生しました。Cgroups を操作すれば消すことはできると思うのですが調べていません。
