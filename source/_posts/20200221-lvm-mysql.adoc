@@ -37,7 +37,6 @@ LVM で小さな領域を作成して、データベースのフォルダ位置�
   lvg:
     vg: rdb
     pvs: "{{ userctl_disks | map('regex_replace', '$', '1') | list }}"
-    pesize: '32'
 
 # 論理ボリュームを作成する
 - name: create logical volume
@@ -76,7 +75,7 @@ LVM で小さな領域を作成して、データベースのフォルダ位置�
   with_items: "{{ userctl_users }}"
 
 - name: install pymysql
-  pip
+  pip:
     name: pymysql
 
 # データベースを作成する
