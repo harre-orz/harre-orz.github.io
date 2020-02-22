@@ -56,7 +56,7 @@ lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
 lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options
 ----
 
-/sys/fs/cgroup の容量は十分に空いおり容量不足ではないため、原因を調べたところ以下のフラグを 1 にする必要がありました。
+/sys/fs/cgroup の容量は十分に空いています。原因を調べたところ以下のフラグを 1 にする必要がありました。
 
 ----
 echo 1 >> `/sys/fs/cgroup/cpuset/cgroup.clone_children`
