@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+
+  
+  <title>大量のデータをrsyncで転送できない問題とその解決策 | WindowsよりMacよりLinuxがいい</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="問題   あるシステムで、大量のデータをrsync+ssh をデータを転送しようとするが、うまくできない問題が発生しました。 sshの接続性やrsyncの動作は問題ないことを確認済みで、データ量が多くなることに起因していると思われるので調査しました。   また、rsync の出力結果をみると sending incremental file list の１行だけが出力されていて、それ以降の出力が">
+<meta property="og:type" content="article">
+<meta property="og:title" content="大量のデータをrsyncで転送できない問題とその解決策">
+<meta property="og:url" content="https://harre-orz.github.io/2020/02/18/20200218-rsync/index.html">
+<meta property="og:site_name" content="WindowsよりMacよりLinuxがいい">
+<meta property="og:description" content="問題   あるシステムで、大量のデータをrsync+ssh をデータを転送しようとするが、うまくできない問題が発生しました。 sshの接続性やrsyncの動作は問題ないことを確認済みで、データ量が多くなることに起因していると思われるので調査しました。   また、rsync の出力結果をみると sending incremental file list の１行だけが出力されていて、それ以降の出力が">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-02-17T15:00:00.000Z">
+<meta property="article:modified_time" content="2020-08-21T16:47:16.266Z">
+<meta property="article:author" content="harre.orz">
+<meta property="article:tag" content="rsync">
+<meta property="article:tag" content="ssh">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="WindowsよりMacよりLinuxがいい" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">WindowsよりMacよりLinuxがいい</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://harre-orz.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-20200218-rsync" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2020/02/18/20200218-rsync/" class="article-date">
+  <time datetime="2020-02-17T15:00:00.000Z" itemprop="datePublished">2020-02-18</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      大量のデータをrsyncで転送できない問題とその解決策
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <div class="sect1">
+<h2 id="_問題">問題</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>あるシステムで、大量のデータをrsync+ssh をデータを転送しようとするが、うまくできない問題が発生しました。
+sshの接続性やrsyncの動作は問題ないことを確認済みで、データ量が多くなることに起因していると思われるので調査しました。</p>
+</div>
+<div class="paragraph">
+<p>また、rsync の出力結果をみると <code>sending incremental file list</code> の１行だけが出力されていて、それ以降の出力がないためrsync処理中に中断しているような感じでした。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_原因と解決策">原因と解決策</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>原因は、単純で rsync のデータ転送の計算に時間がかかり過ぎたことにより、データ無転送の状態がしばらく続き ssh のコネクションが切れてしまったからでした。
+そのため、サーバ側で ClientAliveInterval を指定するか クライアント側で ServerAliveInterval を指定することで解決ができます。
+なお、サーバ側とクライアント側のどちらか片方の設定で十分です、両方にキープアライブ設定を入れても効果は変わりません。</p>
+</div>
+<div class="paragraph">
+<p>サーバ側で指定する場合は、以下のように設定変更をします。</p>
+</div>
+<div class="listingblock">
+<div class="title">/etc/ssh/sshd_config</div>
+<div class="content">
+<pre>#ClientAliveInterval 0
+ClientAliveInterval 60</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>クライアント側で指定する場合は、rsync の -e オプションで指定するのが簡単です。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>$ rsync -e 'ssh -o ServerAliveInterval=60' ...</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>この手の問題は、普通に rsync する程度では発生せずデータが多くなることで発生するため、発生を予測してキープアライブ設定をする対応は難しいと思っています。
+そのため、rsync に失敗しても気づけるような仕組みを導入したほうがいいでしょう。</p>
+</div>
+</div>
+</div>
+<div id="gitalk-container"></div>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script><link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"><script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+		<script>
+		var gitalkConfig = {"clientID":"552cbd212e71c5d6c3e0","clientSecret":"4402dc0c5c3a368fca4f5ecfe4fa69290a429207","repo":"harre-orz.github.io","owner":"harre-orz","admin":["harre-orz"],"distractionFreeMode":false};
+	    gitalkConfig.id = md5(location.pathname);
+		var gitalk = new Gitalk(gitalkConfig);
+	    gitalk.render("gitalk-container");
+	    </script>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://harre-orz.github.io/2020/02/18/20200218-rsync/" data-id="cke4hlcua000indl22h954cyu" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/rsync/" rel="tag">rsync</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/ssh/" rel="tag">ssh</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2020/02/21/20200221-lvm-mysql/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          MySQLのデータベースごとにディスク容量制限を簡単にしたい
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2020/02/16/20200215-hexo/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">静的サイトジェネレータをPelicanからHexoに切り替えた</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ansible/" rel="tag">Ansible</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AsciiDoc/" rel="tag">AsciiDoc</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-6/" rel="tag">CentOS 6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-7/" rel="tag">CentOS 7</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GARP/" rel="tag">GARP</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GitHub-Pages/" rel="tag">GitHub Pages</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hexo/" rel="tag">Hexo</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ICMPv6/" rel="tag">ICMPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IPv6/" rel="tag">IPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LVM/" rel="tag">LVM</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LXC/" rel="tag">LXC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MySQL/" rel="tag">MySQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NextCloud/" rel="tag">NextCloud</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenVAS/" rel="tag">OpenVAS</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Pelican/" rel="tag">Pelican</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/journald/" rel="tag">journald</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/memory-leak/" rel="tag">memory leak</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsync/" rel="tag">rsync</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsyslog/" rel="tag">rsyslog</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ssh/" rel="tag">ssh</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Ansible/" style="font-size: 10px;">Ansible</a> <a href="/tags/AsciiDoc/" style="font-size: 16.67px;">AsciiDoc</a> <a href="/tags/CentOS-6/" style="font-size: 10px;">CentOS 6</a> <a href="/tags/CentOS-7/" style="font-size: 20px;">CentOS 7</a> <a href="/tags/Docker/" style="font-size: 10px;">Docker</a> <a href="/tags/GARP/" style="font-size: 10px;">GARP</a> <a href="/tags/GitHub-Pages/" style="font-size: 13.33px;">GitHub Pages</a> <a href="/tags/Hexo/" style="font-size: 10px;">Hexo</a> <a href="/tags/ICMPv6/" style="font-size: 10px;">ICMPv6</a> <a href="/tags/IPv6/" style="font-size: 10px;">IPv6</a> <a href="/tags/LVM/" style="font-size: 10px;">LVM</a> <a href="/tags/LXC/" style="font-size: 10px;">LXC</a> <a href="/tags/MySQL/" style="font-size: 10px;">MySQL</a> <a href="/tags/NextCloud/" style="font-size: 10px;">NextCloud</a> <a href="/tags/OpenVAS/" style="font-size: 10px;">OpenVAS</a> <a href="/tags/Pelican/" style="font-size: 16.67px;">Pelican</a> <a href="/tags/PostgreSQL/" style="font-size: 10px;">PostgreSQL</a> <a href="/tags/journald/" style="font-size: 10px;">journald</a> <a href="/tags/memory-leak/" style="font-size: 10px;">memory leak</a> <a href="/tags/rsync/" style="font-size: 10px;">rsync</a> <a href="/tags/rsyslog/" style="font-size: 13.33px;">rsyslog</a> <a href="/tags/ssh/" style="font-size: 10px;">ssh</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/02/">February 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/04/">April 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/02/">February 2019</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2020/02/22/20200222-lxc-centos/">CentOS7のLXCでCentOS6を非特権ユーザで起動させる</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/21/20200221-lvm-mysql/">MySQLのデータベースごとにディスク容量制限を簡単にしたい</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/18/20200218-rsync/">大量のデータをrsyncで転送できない問題とその解決策</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/16/20200215-hexo/">静的サイトジェネレータをPelicanからHexoに切り替えた</a>
+          </li>
+        
+          <li>
+            <a href="/2019/04/11/20190411-centos7-rsyslog/">CentOS7のrsyslogが大量にメモリを消費する問題</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+<script data-ad-client="ca-pub-3360456910575678" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      Documentation licensed under <a href="http://creativecommons.org/licenses/by/4.0/" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>.<br />
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+  
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+  </div>
+</body>
+</html>

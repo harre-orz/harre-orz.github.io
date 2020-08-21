@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+
+  
+  <title>IPv6でGARPみたいなパケットを投げる | WindowsよりMacよりLinuxがいい</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="以下のソースコードでICMPv6のNeighbor Advertisement の override flag を設定し、強制的にIPv6アドレスとMACアドレスの対応関係を誘導させることが可能.   https:&#x2F;&#x2F;src.openvz.org&#x2F;projects&#x2F;OVZ&#x2F;repos&#x2F;vzctl&#x2F;browse&#x2F;src&#x2F;ndsend.c  &#x2F;*  * Copyright (c) 1999-2017">
+<meta property="og:type" content="article">
+<meta property="og:title" content="IPv6でGARPみたいなパケットを投げる">
+<meta property="og:url" content="https://harre-orz.github.io/2019/02/18/20190218-ndsend/index.html">
+<meta property="og:site_name" content="WindowsよりMacよりLinuxがいい">
+<meta property="og:description" content="以下のソースコードでICMPv6のNeighbor Advertisement の override flag を設定し、強制的にIPv6アドレスとMACアドレスの対応関係を誘導させることが可能.   https:&#x2F;&#x2F;src.openvz.org&#x2F;projects&#x2F;OVZ&#x2F;repos&#x2F;vzctl&#x2F;browse&#x2F;src&#x2F;ndsend.c  &#x2F;*  * Copyright (c) 1999-2017">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-02-17T15:00:00.000Z">
+<meta property="article:modified_time" content="2020-08-21T16:47:16.262Z">
+<meta property="article:author" content="harre.orz">
+<meta property="article:tag" content="IPv6">
+<meta property="article:tag" content="GARP">
+<meta property="article:tag" content="ICMPv6">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="WindowsよりMacよりLinuxがいい" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">WindowsよりMacよりLinuxがいい</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://harre-orz.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-20190218-ndsend" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2019/02/18/20190218-ndsend/" class="article-date">
+  <time datetime="2019-02-17T15:00:00.000Z" itemprop="datePublished">2019-02-18</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      IPv6でGARPみたいなパケットを投げる
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <div class="paragraph">
+<p>以下のソースコードでICMPv6のNeighbor Advertisement の override flag を設定し、強制的にIPv6アドレスとMACアドレスの対応関係を誘導させることが可能.</p>
+</div>
+<div class="listingblock">
+<div class="title"><a href="https://src.openvz.org/projects/OVZ/repos/vzctl/browse/src/ndsend.c" target="_blank" rel="noopener" class="bare">https://src.openvz.org/projects/OVZ/repos/vzctl/browse/src/ndsend.c</a></div>
+<div class="content">
+<pre class="highlight"><code class="language-c" data-lang="c"><pre><code class="highlight c"><span class="comment">/*</span>
+<span class="comment"> * Copyright (c) 1999-2017, Parallels International GmbH</span>
+<span class="comment"> *</span>
+<span class="comment"> * This code is public domain.</span>
+<span class="comment"> *</span>
+<span class="comment"> * This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE</span>
+<span class="comment"> * WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</span>
+<span class="comment"> *</span>
+<span class="comment"> * Our contact details: Parallels International GmbH, Vordergasse 59, 8200</span>
+<span class="comment"> * Schaffhausen, Switzerland.</span>
+<span class="comment"> */</span>
+
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;ctype.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;errno.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span>
+
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netdb.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/in.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux/types.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;linux/if.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netinet/icmp6.h&gt;</span></span>
+
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/ioctl.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;arpa/inet.h&gt;</span></span>
+
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;getopt.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span>
+<span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;signal.h&gt;</span></span>
+
+<span class="meta">#<span class="meta-keyword">define</span> EXC_OK 0</span>
+<span class="meta">#<span class="meta-keyword">define</span> EXC_USAGE	1</span>
+<span class="meta">#<span class="meta-keyword">define</span> EXC_SYS		2</span>
+<span class="meta">#<span class="meta-keyword">define</span> EXC_RECV	3</span>
+<span class="meta">#<span class="meta-keyword">define</span> EXC_NORECV	4</span>
+
+<span class="keyword">char</span>* iface = <span class="literal">NULL</span>;
+
+<span class="class"><span class="keyword">struct</span> <span class="title">in6_addr</span> <span class="title">src_ipaddr</span>;</span>
+<span class="keyword">int</span> ifindex;
+__u8 real_hwaddr[<span class="number">6</span>];
+
+<span class="class"><span class="keyword">struct</span> <span class="title">nd_packet</span> &#123;</span>
+	__u8		icmp6_type;
+	__u8		icmp6_code;
+	__u16		icmp6_cksum;
+
+	__u32		reserved:<span class="number">5</span>,
+			<span class="keyword">override</span>:<span class="number">1</span>,
+			solicited:<span class="number">1</span>,
+			router:<span class="number">1</span>,
+			reserved2:<span class="number">24</span>;
+	<span class="class"><span class="keyword">struct</span> <span class="title">in6_addr</span> <span class="title">target</span>;</span>
+	__u8		otype;
+	__u8		ospace;
+	__u8		obits[<span class="number">6</span>];
+&#125;;
+
+<span class="function"><span class="keyword">int</span> <span class="title">init_device_addresses</span><span class="params">(<span class="keyword">int</span> sock, <span class="keyword">const</span> <span class="keyword">char</span>* device)</span></span>
+<span class="function"></span>&#123;
+	<span class="class"><span class="keyword">struct</span> <span class="title">ifreq</span> <span class="title">ifr</span>;</span>
+
+	<span class="built_in">memset</span>(&amp;ifr, <span class="number">0</span>, <span class="keyword">sizeof</span>(ifr));
+	<span class="built_in">strncpy</span>(ifr.ifr_name, device, IFNAMSIZ<span class="number">-1</span>);
+
+	<span class="keyword">if</span> (ioctl(sock, SIOCGIFINDEX, &amp;ifr) != <span class="number">0</span>) &#123;
+		<span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">"Unknown network interface %s: %m\n"</span>, device);
+		<span class="keyword">return</span> <span class="number">-1</span>;
+	&#125;
+	ifindex = ifr.ifr_ifindex;
+
+	<span class="comment">/* get interface HW address */</span>
+	<span class="keyword">if</span> (ioctl(sock, SIOCGIFHWADDR, &amp;ifr) != <span class="number">0</span>) &#123;
+		<span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">"Cannot get the MAC address of "</span>
+				<span class="string">"network interface %s: %m\n"</span>, device);
+		<span class="keyword">return</span> <span class="number">-1</span>;
+	&#125;
+	<span class="built_in">memcpy</span>(real_hwaddr, ifr.ifr_hwaddr.sa_data, <span class="number">6</span>);
+
+	<span class="keyword">return</span> <span class="number">0</span>;
+&#125;
+
+<span class="keyword">int</span> sock;
+<span class="class"><span class="keyword">struct</span> <span class="title">nd_packet</span> <span class="title">pkt</span>;</span>
+
+<span class="function"><span class="keyword">void</span> <span class="title">create_nd_packet</span><span class="params">(struct nd_packet* pkt)</span></span>
+<span class="function"></span>&#123;
+	pkt-&gt;icmp6_type = ND_NEIGHBOR_ADVERT;
+	pkt-&gt;icmp6_code = <span class="number">0</span>;
+	pkt-&gt;icmp6_cksum = <span class="number">0</span>;
+	pkt-&gt;reserved = <span class="number">0</span>;
+	pkt-&gt;<span class="keyword">override</span> = <span class="number">1</span>;
+	pkt-&gt;solicited = <span class="number">0</span>;
+	pkt-&gt;router = <span class="number">0</span>;
+	pkt-&gt;reserved2 = <span class="number">0</span>;
+	<span class="built_in">memcpy</span>(&amp;pkt-&gt;target, &amp;src_ipaddr, <span class="number">16</span>);
+	pkt-&gt;otype = ND_OPT_TARGET_LINKADDR;
+	pkt-&gt;ospace = <span class="number">1</span>;
+	<span class="built_in">memcpy</span>(&amp;pkt-&gt;obits, real_hwaddr, <span class="number">6</span>);
+&#125;
+
+<span class="function"><span class="keyword">void</span> <span class="title">sender</span><span class="params">(<span class="keyword">void</span>)</span></span>
+<span class="function"></span>&#123;
+	<span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in6</span> <span class="title">to</span>;</span>
+
+	to.sin6_family = AF_INET6;
+	to.sin6_port = <span class="number">0</span>;
+	((__u32*)&amp;to.sin6_addr)[<span class="number">0</span>] = htonl(<span class="number">0xFF020000</span>);
+	((__u32*)&amp;to.sin6_addr)[<span class="number">1</span>] = <span class="number">0</span>;
+	((__u32*)&amp;to.sin6_addr)[<span class="number">2</span>] = <span class="number">0</span>;
+	((__u32*)&amp;to.sin6_addr)[<span class="number">3</span>] = htonl(<span class="number">0x1</span>);
+	to.sin6_scope_id = ifindex;
+
+	<span class="keyword">if</span> (sendto(sock, &amp;pkt, <span class="keyword">sizeof</span>(pkt), <span class="number">0</span>,
+	    (struct sockaddr*) &amp;to, <span class="keyword">sizeof</span>(to)) &lt; <span class="number">0</span>) &#123;
+		<span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">"sendto function returned error: %m\n"</span>);
+		<span class="built_in">exit</span>(EXC_SYS);
+	&#125;
+&#125;
+
+<span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc,<span class="keyword">char</span>** argv)</span></span>
+<span class="function"></span>&#123;
+	<span class="keyword">int</span> value;
+
+	<span class="keyword">if</span> (inet_pton(AF_INET6, argv[<span class="number">1</span>], &amp;src_ipaddr) &lt;= <span class="number">0</span>)
+		<span class="keyword">return</span> <span class="number">-1</span>;
+	iface = argv[<span class="number">2</span>];
+
+	sock = socket(PF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+	<span class="keyword">if</span> (sock &lt; <span class="number">0</span>) &#123;
+		<span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">"socket function returned error: %m\n"</span>);
+		<span class="built_in">exit</span>(EXC_SYS);
+	&#125;
+
+	<span class="keyword">if</span> (init_device_addresses(sock, iface) &lt; <span class="number">0</span>)
+		<span class="built_in">exit</span>(EXC_SYS);
+
+	value = <span class="number">255</span>;
+	setsockopt (sock, SOL_IPV6, IPV6_MULTICAST_HOPS,
+		    &amp;value, <span class="keyword">sizeof</span> (value));
+
+	create_nd_packet(&amp;pkt);
+	sender();
+	<span class="built_in">exit</span>(EXC_OK);
+&#125;</code></pre></code></pre>
+</div>
+</div>
+<div id="gitalk-container"></div>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script><link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"><script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+		<script>
+		var gitalkConfig = {"clientID":"552cbd212e71c5d6c3e0","clientSecret":"4402dc0c5c3a368fca4f5ecfe4fa69290a429207","repo":"harre-orz.github.io","owner":"harre-orz","admin":["harre-orz"],"distractionFreeMode":false};
+	    gitalkConfig.id = md5(location.pathname);
+		var gitalk = new Gitalk(gitalkConfig);
+	    gitalk.render("gitalk-container");
+	    </script>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://harre-orz.github.io/2019/02/18/20190218-ndsend/" data-id="cke4hlctr0005ndl2dmau57is" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/GARP/" rel="tag">GARP</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/ICMPv6/" rel="tag">ICMPv6</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/IPv6/" rel="tag">IPv6</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2019/03/16/20190316-journald/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          journaldを経由せずにrsyslogから/dev/logを使う
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2019/02/14/20190214-openvas-centos7/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">CentOS7にOpenVASのインストール</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ansible/" rel="tag">Ansible</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AsciiDoc/" rel="tag">AsciiDoc</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-6/" rel="tag">CentOS 6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-7/" rel="tag">CentOS 7</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GARP/" rel="tag">GARP</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GitHub-Pages/" rel="tag">GitHub Pages</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hexo/" rel="tag">Hexo</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ICMPv6/" rel="tag">ICMPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IPv6/" rel="tag">IPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LVM/" rel="tag">LVM</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LXC/" rel="tag">LXC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MySQL/" rel="tag">MySQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NextCloud/" rel="tag">NextCloud</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenVAS/" rel="tag">OpenVAS</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Pelican/" rel="tag">Pelican</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/journald/" rel="tag">journald</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/memory-leak/" rel="tag">memory leak</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsync/" rel="tag">rsync</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsyslog/" rel="tag">rsyslog</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ssh/" rel="tag">ssh</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Ansible/" style="font-size: 10px;">Ansible</a> <a href="/tags/AsciiDoc/" style="font-size: 16.67px;">AsciiDoc</a> <a href="/tags/CentOS-6/" style="font-size: 10px;">CentOS 6</a> <a href="/tags/CentOS-7/" style="font-size: 20px;">CentOS 7</a> <a href="/tags/Docker/" style="font-size: 10px;">Docker</a> <a href="/tags/GARP/" style="font-size: 10px;">GARP</a> <a href="/tags/GitHub-Pages/" style="font-size: 13.33px;">GitHub Pages</a> <a href="/tags/Hexo/" style="font-size: 10px;">Hexo</a> <a href="/tags/ICMPv6/" style="font-size: 10px;">ICMPv6</a> <a href="/tags/IPv6/" style="font-size: 10px;">IPv6</a> <a href="/tags/LVM/" style="font-size: 10px;">LVM</a> <a href="/tags/LXC/" style="font-size: 10px;">LXC</a> <a href="/tags/MySQL/" style="font-size: 10px;">MySQL</a> <a href="/tags/NextCloud/" style="font-size: 10px;">NextCloud</a> <a href="/tags/OpenVAS/" style="font-size: 10px;">OpenVAS</a> <a href="/tags/Pelican/" style="font-size: 16.67px;">Pelican</a> <a href="/tags/PostgreSQL/" style="font-size: 10px;">PostgreSQL</a> <a href="/tags/journald/" style="font-size: 10px;">journald</a> <a href="/tags/memory-leak/" style="font-size: 10px;">memory leak</a> <a href="/tags/rsync/" style="font-size: 10px;">rsync</a> <a href="/tags/rsyslog/" style="font-size: 13.33px;">rsyslog</a> <a href="/tags/ssh/" style="font-size: 10px;">ssh</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/02/">February 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/04/">April 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/02/">February 2019</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2020/02/22/20200222-lxc-centos/">CentOS7のLXCでCentOS6を非特権ユーザで起動させる</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/21/20200221-lvm-mysql/">MySQLのデータベースごとにディスク容量制限を簡単にしたい</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/18/20200218-rsync/">大量のデータをrsyncで転送できない問題とその解決策</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/16/20200215-hexo/">静的サイトジェネレータをPelicanからHexoに切り替えた</a>
+          </li>
+        
+          <li>
+            <a href="/2019/04/11/20190411-centos7-rsyslog/">CentOS7のrsyslogが大量にメモリを消費する問題</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+<script data-ad-client="ca-pub-3360456910575678" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      Documentation licensed under <a href="http://creativecommons.org/licenses/by/4.0/" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>.<br />
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+  
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+  </div>
+</body>
+</html>

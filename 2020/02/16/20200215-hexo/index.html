@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+
+  
+  <title>静的サイトジェネレータをPelicanからHexoに切り替えた | WindowsよりMacよりLinuxがいい</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="背景   pelicanを採用した理由は python で書かれており、何か問題があってもトラブルシュートができるからでした。 実際、AsciiDocのプラグインが文字化けしたり正常に機能しないことが多々あり、自分の環境で動くように調整する必要がありました。   また、GitHub Pages のブロクを書いていて、コメントができないのは不便だなーと思いつつ、何も調べないまま Pelican を">
+<meta property="og:type" content="article">
+<meta property="og:title" content="静的サイトジェネレータをPelicanからHexoに切り替えた">
+<meta property="og:url" content="https://harre-orz.github.io/2020/02/16/20200215-hexo/index.html">
+<meta property="og:site_name" content="WindowsよりMacよりLinuxがいい">
+<meta property="og:description" content="背景   pelicanを採用した理由は python で書かれており、何か問題があってもトラブルシュートができるからでした。 実際、AsciiDocのプラグインが文字化けしたり正常に機能しないことが多々あり、自分の環境で動くように調整する必要がありました。   また、GitHub Pages のブロクを書いていて、コメントができないのは不便だなーと思いつつ、何も調べないまま Pelican を">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-02-15T15:00:00.000Z">
+<meta property="article:modified_time" content="2020-08-21T16:47:16.265Z">
+<meta property="article:author" content="harre.orz">
+<meta property="article:tag" content="Pelican">
+<meta property="article:tag" content="AsciiDoc">
+<meta property="article:tag" content="GitHub Pages">
+<meta property="article:tag" content="Hexo">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="WindowsよりMacよりLinuxがいい" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">WindowsよりMacよりLinuxがいい</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://harre-orz.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-20200215-hexo" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2020/02/16/20200215-hexo/" class="article-date">
+  <time datetime="2020-02-15T15:00:00.000Z" itemprop="datePublished">2020-02-16</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      静的サイトジェネレータをPelicanからHexoに切り替えた
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <div class="sect1">
+<h2 id="_背景">背景</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>pelicanを採用した理由は python で書かれており、何か問題があってもトラブルシュートができるからでした。
+実際、AsciiDocのプラグインが文字化けしたり正常に機能しないことが多々あり、自分の環境で動くように調整する必要がありました。</p>
+</div>
+<div class="paragraph">
+<p>また、GitHub Pages のブロクを書いていて、コメントができないのは不便だなーと思いつつ、何も調べないまま Pelican を採用したのも失敗でした。
+Pelican でも Disqus であれば、JS埋め込みで対応できるようですが、あまり標準で対応している感じではありませんでした。</p>
+</div>
+<div class="paragraph">
+<p>そのため、Pelican をやめて Hexo に切り替えることにしました。</p>
+</div>
+<div class="paragraph">
+<p>Hexo は nodejs で書かれており、npm でプラグインをインストールすることで様々な機能に対応することができます。
+もちろん AsciiDoc にも対応したプラグインもあります。</p>
+</div>
+<div class="paragraph">
+<p>僕は、以下のプラグインを入れています。</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>hexo-cli</p>
+</li>
+<li>
+<p>hexo-renderer-asciidoc</p>
+</li>
+<li>
+<p>hexo-plugin-gitalk</p>
+</li>
+<li>
+<p>hexo-deployer-git</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_hexo_環境整備">Hexo 環境整備</h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_インストール">インストール</h3>
+<div class="listingblock">
+<div class="title">自分用のメモ</div>
+<div class="content">
+<pre>// Arch Linux の場合は pacman で npm をインストール
+$ sudo pacman -S npm
+
+// hexo-cli をインストール
+$ sudo npm install hexo-cli -g
+
+// サイトのプロジェクトフォルダを作成
+$ hexo init harre-orz.github.io
+$ cd harre-orz.github.io
+
+// 依存パッケージをインストール
+$ npm install
+
+// AsciiDoc をインストール
+$ npm install hexo-renderer-asciidoc --save
+
+// gitalk コメントを使うためにをインストール
+$ npm install hexo-plugin-gitalk --save
+
+// Github Pages にデプロイするためのプラグインをインストール
+$ npm install hexo-deployer-git --save
+
+// git の初期化
+$ git init
+$ git remote add origin git@github.com:harre-orz/harre-orz.github.io.git
+
+// deploy
+$ hexo deploy -g</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_landscape_の編集">landscape の編集</h3>
+<div class="paragraph">
+<p>標準で用意されているテーマ`landscape`の出来はいいのですが、AsciiDoc が生成するコードと相性が悪いようで、CSSの修正が必要でした。</p>
+</div>
+<div class="listingblock">
+<div class="title">themes/landscape/source/css/_partial/highlight.styl</div>
+<div class="content">
+<pre class="highlight"><code class="language-css" data-lang="css"><pre><code class="highlight css">link:themes/landscape/source/css/_partial/highlight.styl[]</code></pre></code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_asciidoc_の編集">asciidoc の編集</h3>
+<div class="paragraph">
+<p>asciidoc もそのままでは セキュリティレベルが高く <code>include</code> が利用できません。レンダリングオプションに <code>&#123; safe: "safe" &#125;</code> を指定します。</p>
+</div>
+<div class="listingblock">
+<div class="title">node_modules/hexo-renderer-asciidoc/lib/renderer.js</div>
+<div class="content">
+<pre>link:node_modules/hexo-renderer-asciidoc/lib/renderer.js[]</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_gitalk_の編集">gitalk の編集</h3>
+<div class="paragraph">
+<p><code>gitalk</code> も、標準の場合はトップページに先頭の記事の中にコメント枠が表示され、それがトップページ用のコメントとして認識されてしまいます。
+そのため、記事ページに移動してからでないとコメントが表示されないように修正が必要でした。</p>
+</div>
+<div class="listingblock">
+<div class="title">node_modules/hexo-plugin-gitalk/index.js</div>
+<div class="content">
+<pre class="highlight"><code class="language-javascript" data-lang="javascript"><pre><code class="highlight javascript">link:node_modules/hexo-plugin-gitalk/index.js[]</code></pre></code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>結局、細かいところを直しつつというのは変わらない気がしますが。。。</p>
+</div>
+</div>
+</div>
+</div>
+<div id="gitalk-container"></div>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script><link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"><script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+		<script>
+		var gitalkConfig = {"clientID":"552cbd212e71c5d6c3e0","clientSecret":"4402dc0c5c3a368fca4f5ecfe4fa69290a429207","repo":"harre-orz.github.io","owner":"harre-orz","admin":["harre-orz"],"distractionFreeMode":false};
+	    gitalkConfig.id = md5(location.pathname);
+		var gitalk = new Gitalk(gitalkConfig);
+	    gitalk.render("gitalk-container");
+	    </script>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://harre-orz.github.io/2020/02/16/20200215-hexo/" data-id="cke4hlcu0000bndl244xc1lps" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/AsciiDoc/" rel="tag">AsciiDoc</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/GitHub-Pages/" rel="tag">GitHub Pages</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Hexo/" rel="tag">Hexo</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/Pelican/" rel="tag">Pelican</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2020/02/18/20200218-rsync/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          大量のデータをrsyncで転送できない問題とその解決策
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2019/04/11/20190411-centos7-rsyslog/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">CentOS7のrsyslogが大量にメモリを消費する問題</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ansible/" rel="tag">Ansible</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AsciiDoc/" rel="tag">AsciiDoc</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-6/" rel="tag">CentOS 6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-7/" rel="tag">CentOS 7</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GARP/" rel="tag">GARP</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GitHub-Pages/" rel="tag">GitHub Pages</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hexo/" rel="tag">Hexo</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ICMPv6/" rel="tag">ICMPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IPv6/" rel="tag">IPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LVM/" rel="tag">LVM</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LXC/" rel="tag">LXC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MySQL/" rel="tag">MySQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NextCloud/" rel="tag">NextCloud</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenVAS/" rel="tag">OpenVAS</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Pelican/" rel="tag">Pelican</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/journald/" rel="tag">journald</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/memory-leak/" rel="tag">memory leak</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsync/" rel="tag">rsync</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsyslog/" rel="tag">rsyslog</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ssh/" rel="tag">ssh</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Ansible/" style="font-size: 10px;">Ansible</a> <a href="/tags/AsciiDoc/" style="font-size: 16.67px;">AsciiDoc</a> <a href="/tags/CentOS-6/" style="font-size: 10px;">CentOS 6</a> <a href="/tags/CentOS-7/" style="font-size: 20px;">CentOS 7</a> <a href="/tags/Docker/" style="font-size: 10px;">Docker</a> <a href="/tags/GARP/" style="font-size: 10px;">GARP</a> <a href="/tags/GitHub-Pages/" style="font-size: 13.33px;">GitHub Pages</a> <a href="/tags/Hexo/" style="font-size: 10px;">Hexo</a> <a href="/tags/ICMPv6/" style="font-size: 10px;">ICMPv6</a> <a href="/tags/IPv6/" style="font-size: 10px;">IPv6</a> <a href="/tags/LVM/" style="font-size: 10px;">LVM</a> <a href="/tags/LXC/" style="font-size: 10px;">LXC</a> <a href="/tags/MySQL/" style="font-size: 10px;">MySQL</a> <a href="/tags/NextCloud/" style="font-size: 10px;">NextCloud</a> <a href="/tags/OpenVAS/" style="font-size: 10px;">OpenVAS</a> <a href="/tags/Pelican/" style="font-size: 16.67px;">Pelican</a> <a href="/tags/PostgreSQL/" style="font-size: 10px;">PostgreSQL</a> <a href="/tags/journald/" style="font-size: 10px;">journald</a> <a href="/tags/memory-leak/" style="font-size: 10px;">memory leak</a> <a href="/tags/rsync/" style="font-size: 10px;">rsync</a> <a href="/tags/rsyslog/" style="font-size: 13.33px;">rsyslog</a> <a href="/tags/ssh/" style="font-size: 10px;">ssh</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/02/">February 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/04/">April 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/02/">February 2019</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2020/02/22/20200222-lxc-centos/">CentOS7のLXCでCentOS6を非特権ユーザで起動させる</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/21/20200221-lvm-mysql/">MySQLのデータベースごとにディスク容量制限を簡単にしたい</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/18/20200218-rsync/">大量のデータをrsyncで転送できない問題とその解決策</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/16/20200215-hexo/">静的サイトジェネレータをPelicanからHexoに切り替えた</a>
+          </li>
+        
+          <li>
+            <a href="/2019/04/11/20190411-centos7-rsyslog/">CentOS7のrsyslogが大量にメモリを消費する問題</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+<script data-ad-client="ca-pub-3360456910575678" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      Documentation licensed under <a href="http://creativecommons.org/licenses/by/4.0/" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>.<br />
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+  
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+  </div>
+</body>
+</html>

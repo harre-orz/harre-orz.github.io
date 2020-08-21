@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+
+  
+  <title>CentOS7のLXCでCentOS6を非特権ユーザで起動させる | WindowsよりMacよりLinuxがいい</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="はじめに   この記事は、とある調査の結果をまとめたものであって、一般には参考にならない内容になっているのでご注意ください。     CentOS 7で特権ユーザ   CentOS 7の epel に含まれる lxc 1.0.11 では、非特権機能がまともに動きません。素直に lxc-3.0.x の最新安定版のソースコードを公式からダウンロードしてビルド [1] します。   bridge の設">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CentOS7のLXCでCentOS6を非特権ユーザで起動させる">
+<meta property="og:url" content="https://harre-orz.github.io/2020/02/22/20200222-lxc-centos/index.html">
+<meta property="og:site_name" content="WindowsよりMacよりLinuxがいい">
+<meta property="og:description" content="はじめに   この記事は、とある調査の結果をまとめたものであって、一般には参考にならない内容になっているのでご注意ください。     CentOS 7で特権ユーザ   CentOS 7の epel に含まれる lxc 1.0.11 では、非特権機能がまともに動きません。素直に lxc-3.0.x の最新安定版のソースコードを公式からダウンロードしてビルド [1] します。   bridge の設">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-02-21T15:00:00.000Z">
+<meta property="article:modified_time" content="2020-08-21T16:47:16.267Z">
+<meta property="article:author" content="harre.orz">
+<meta property="article:tag" content="CentOS 7">
+<meta property="article:tag" content="LXC">
+<meta property="article:tag" content="CentOS 6">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="WindowsよりMacよりLinuxがいい" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">WindowsよりMacよりLinuxがいい</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://harre-orz.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-20200222-lxc-centos" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2020/02/22/20200222-lxc-centos/" class="article-date">
+  <time datetime="2020-02-21T15:00:00.000Z" itemprop="datePublished">2020-02-22</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      CentOS7のLXCでCentOS6を非特権ユーザで起動させる
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <div class="sect1">
+<h2 id="_はじめに">はじめに</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>この記事は、とある調査の結果をまとめたものであって、一般には参考にならない内容になっているのでご注意ください。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_centos_7で特権ユーザ">CentOS 7で特権ユーザ</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>CentOS 7の epel に含まれる lxc 1.0.11 では、非特権機能がまともに動きません。素直に lxc-3.0.x の最新安定版のソースコードを公式からダウンロードしてビルド <sup class="footnote">[<a id="_footnoteref_1" class="footnote" href="#_footnotedef_1" title="View footnote.">1</a>]</sup> します。</p>
+</div>
+<div class="paragraph">
+<p>bridge の設定をします。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># yum install bridge-utils
+# brctl addbr lxcbr0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>非特権ユーザの設定をします。</p>
+</div>
+<div class="listingblock">
+<div class="title">/etc/subuid</div>
+<div class="content">
+<pre>root:100000:65536</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">/etc/subgid</div>
+<div class="content">
+<pre>root:100000:65536</pre>
+</div>
+</div>
+<div class="listingblock">
+<div class="title">/etc/lxc/lxc-usernet</div>
+<div class="content">
+<pre>root veth lxcbr0 10</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>CentOS 6は、initプロセスが大きく違うので、手始めに CentOS 7 のコンテナを作成して特権ユーザで起動できることを確認します。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-create -n centos7 -t centos -- -R 7
+
+# lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos7   STOPPED 0         -      -    -    false</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>起動しようとすると、以下の <code>No space left on device</code> というエラーになります。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-start -n centos7 -F
+lxc-start: centos7: cgroups/cgfsng.c: __do_cgroup_enter: 1498 No space left on device - Failed to enter cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7/cgroup.procs"
+lxc-start: centos7: start.c: __lxc_start: 1992 Failed to enter monitor cgroup
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>/sys/fs/cgroup の容量は十分に空いています。原因を調べたところ以下のフラグを 1 にする必要がありました。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>echo 1 &gt;&gt; `/sys/fs/cgroup/cpuset/cgroup.clone_children`</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>ただし、必ず lxc-start を実行する前に指定しなければいけません。もし、１度でも lxc-start でコンテナを起動してしまった場合、cgroup が不完全な状態で作成されてしまうので二度と起動 <sup class="footnote">[<a id="_footnoteref_2" class="footnote" href="#_footnotedef_2" title="View footnote.">2</a>]</sup> できなくなります。</p>
+</div>
+<div class="paragraph">
+<p>事実、２回目以降はエラーは以下のように <code>File exists</code> なります。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>lxc-start: centos7: cgroups/cgfsng.c: mkdir_eexist_on_last: 1277 File exists - Failed to create directory "/sys/fs/cgroup/cpuset//lxc.monitor/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: monitor_create_path_for_hierarchy: 1298 Failed to create cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: cgfsng_monitor_create: 1388 Failed to create cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: __do_cgroup_enter: 1498 No space left on device - Failed to enter cgroup "/sys/fs/cgroup/cpuset//lxc.monitor/centos7-1/cgroup.procs"
+lxc-start: centos7: start.c: __lxc_start: 1992 Failed to enter monitor cgroup
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>これで CentOS 7 が起動できました。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># brctl addbr lxcbr0
+# echo 1 &gt;&gt; `/sys/fs/cgroup/cpuset/cgroup.clone_children`
+
+# lxc-start --name centos7 -F
+lxc-start: centos7: start.c: proc_pidfd_open: 1607 Function not implemented - Failed to send signal through pidfd
+systemd 219 running in system mode. (+PAM +AUDIT +SELINUX +IMA -APPARMOR +SMACK +SYSVINIT +UTMP +LIBCRYPTSETUP +GCRYPT +GNUTLS +ACL +XZ +LZ4 -SECCOMP +BLKID +ELFUTILS +KMOD +IDN)
+Detected virtualization lxc.
+Detected architecture x86-64.
+
+Welcome to CentOS Linux 7 (Core)!</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_centos_7で非特権ユーザ">CentOS 7で非特権ユーザ</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>コンテナが特権か非特権か？は、 lxc-ls コマンド結果の <code>UNPRIVILEGED</code> で確認することができます。
+現在は <code>false</code> となっており特権ユーザであることを表しています。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos7   STOPPED 0         -      -    -    false</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>非特権ユーザにするには、コンテナの設定ファイルに以下の2行を追記します。</p>
+</div>
+<div class="listingblock">
+<div class="title">/usr/local/var/lib/lxc/centos7/config</div>
+<div class="content">
+<pre>lxc.idmap = u 0 100000 65536
+lxc.idmap = g 0 100000 65536</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>設定が正しければ <code>UNPRIVILEGED</code> が <code>true</code> に変わります。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos7   STOPPED 0         -      -    -    false</pre>
+</div>
+</div>
+<div class="admonitionblock tip">
+<table>
+<tr>
+<td class="icon">
+<div class="title">Tip</div>
+</td>
+<td class="content">
+コンテナが起動中の場合は <code>true</code> になりません。一度コンテナを停止させます。
+</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
+<p>起動しようとすると、以下の <code>Failed to clone process in new user namespace</code> というエラーになります。
+原因は、CentOS 7 の現在の最新のカーネル 3.10.0-1062.12.1.el7.x86_64 では、非特権ユーザに対応していないためです。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-start -n centos7
+lxc-start: centos7: cgroups/cgfsng.c: mkdir_eexist_on_last: 1277 File exists - Failed to create directory "/sys/fs/cgroup/systemd//lxc.payload/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: container_create_path_for_hierarchy: 1317 Failed to create cgroup "/sys/fs/cgroup/systemd//lxc.payload/centos7"
+lxc-start: centos7: cgroups/cgfsng.c: cgfsng_payload_create: 1454 Failed to create cgroup "/sys/fs/cgroup/systemd//lxc.payload/centos7"
+lxc-start: centos7: start.c: lxc_spawn: 1737 Invalid argument - Failed to clone a new set of namespaces
+lxc-start: centos7: start.c: __lxc_start: 2019 Failed to spawn container "centos7"
+lxc-start: centos7: conf.c: userns_exec_1: 4311 Failed to clone process in new user namespace
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>そのため、カーネルを 3.12 以上に上げます。CentOS 7には、都合のいいバージョンは落ちていないため elrepo で最新のカーネルをインストールします。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org
+# rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-2.el7.elrepo.noarch.rpm
+# yum install --enablerepo=elrepo-kernel kernel-ml</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>僕の場合は 5.5.5-1 が落ちてきたので、OS再起動してカーネルを変更してからもう一度コンテナを起動させます。
+しかし、rootfs が <code>Permission denied</code> となり、まだ起動できません。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># uname -r
+5.5.5-1.el7.elrepo.x86_64
+
+# brctl addbr lxcbr0
+# echo 1 &gt;&gt; `/sys/fs/cgroup/cpuset/cgroup.clone_children`
+
+# lxc-start --name centos7 -F
+lxc-start: centos7: storage/dir.c: dir_mount: 198 Permission denied - Failed to mount "/usr/local/var/lib/lxc/centos7/rootfs" on "/usr/local/lib/lxc/rootfs"
+lxc-start: centos7: conf.c: lxc_mount_rootfs: 1328 Failed to mount rootfs "/usr/local/var/lib/lxc/centos7/rootfs" onto "/usr/local/lib/lxc/rootfs" with options "(null)"
+lxc-start: centos7: conf.c: lxc_setup_rootfs_prepare_root: 3393 Failed to setup rootfs for
+lxc-start: centos7: conf.c: lxc_setup: 3496 Failed to setup rootfs
+lxc-start: centos7: start.c: do_start: 1299 Failed to setup container "centos7"
+lxc-start: centos7: sync.c: __sync_wait: 62 An error occurred in another process (expected sequence number 5)
+lxc-start: centos7: start.c: lxc_abort: 1103 Function not implemented - Failed to send SIGKILL to 2809
+lxc-start: centos7: start.c: __lxc_start: 2019 Failed to spawn container "centos7"
+lxc-start: centos7: tools/lxc_start.c: main: 329 The container failed to start
+lxc-start: centos7: tools/lxc_start.c: main: 335 Additional information can be obtained by setting the --logfile and --logpriority options</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>rootfs の上位ディレクトリの権限を変更して、他人でも閲覧できるようにします。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># ls -ld /usr/local/var/lib/lxc/centos7
+drwxrwx--- 3 root root 55 Feb 22 20:48 /usr/local/var/lib/lxc/centos7
+
+# chmod 775 /usr/local/var/lib/lxc/centos7
+
+# ls -ld /usr/local/var/lib/lxc/centos7
+drwxrwxr-x 3 root root 55 Feb 22 20:48 /usr/local/var/lib/lxc/centos7</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>これで CentOS 7 が非特権ユーザで起動できました。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-start --name centos7 -F
+lxc-start: centos7: start.c: proc_pidfd_open: 1607 Function not implemented - Failed to send signal through pidfd
+systemd 219 running in system mode. (+PAM +AUDIT +SELINUX +IMA -APPARMOR +SMACK +SYSVINIT +UTMP +LIBCRYPTSETUP +GCRYPT +GNUTLS +ACL +XZ +LZ4 -SECCOMP +BLKID +ELFUTILS +KMOD +IDN)
+Detected virtualization lxc.
+Detected architecture x86-64.
+
+Welcome to CentOS Linux 7 (Core)!</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_centos_6で非特権ユーザ">CentOS 6で非特権ユーザ</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>CentOS 6のコンテナを作成します。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-create -n centos6 -t centos -- -R 6</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>まだ、特権ユーザであるため lxc.idmap の設定を追記します。</p>
+</div>
+<div class="listingblock">
+<div class="title">/usr/local/var/lib/lxc/centos6/config</div>
+<div class="content">
+<pre>lxc.idmap = u 0 100000 65536
+lxc.idmap = g 0 100000 65536</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>非特権ユーザにできたので、起動してみます。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># chmod 755 /usr/local/var/lib/lxc/centos6
+
+# lxc-ls -f
+NAME      STATE   AUTOSTART GROUPS IPV4 IPV6 UNPRIVILEGED
+centos6   STOPPED 0         -      -    -    true
+centos7   RUNNING 0         -      -    -    true
+
+# lxc-start --name centos6 -F
+init: lxc-sysinit pre-start process (2) terminated with status 1
+cat: /proc/self/attr/current: Invalid argument
+                Welcome to CentOS</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>起動はできましたが、途中で止まってしまいます。init.d の時代は 非root で実行することを考慮していないためです。</p>
+</div>
+<div class="paragraph">
+<p>とりあえず、起動スクリプトをすべて止めます。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># chroot /usr/local/var/lib/lxc/centos6/rootfs/
+
+# chkconfig --list
+crond           0:off   1:off   2:on    3:on    4:on    5:on    6:off
+iptables        0:off   1:off   2:on    3:on    4:on    5:on    6:off
+netconsole      0:off   1:off   2:off   3:off   4:off   5:off   6:off
+netfs           0:off   1:off   2:off   3:on    4:on    5:on    6:off
+network         0:off   1:off   2:on    3:on    4:on    5:on    6:off
+rdisc           0:off   1:off   2:off   3:off   4:off   5:off   6:off
+restorecond     0:off   1:off   2:off   3:off   4:off   5:off   6:off
+rsyslog         0:off   1:off   2:on    3:on    4:on    5:on    6:off
+saslauthd       0:off   1:off   2:off   3:off   4:off   5:off   6:off
+sendmail        0:off   1:off   2:on    3:on    4:on    5:on    6:off
+sshd            0:off   1:off   2:on    3:on    4:on    5:on    6:off
+udev-post       0:off   1:on    2:off   3:off   4:off   5:off   6:off
+
+# chkconfig crond off
+# chkconfig iptables off
+# chkconfig netfs off
+# chkconfig network off
+# chkconfig rsyslog off
+# chkconfig sendmail off
+# chkconfig sshd off
+
+# echo &gt; /etc/rc.d/rc.sysinit</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>不要な /dev/tty も消しておきます。これをやっておかないと1コンテナあたり無駄なプロセスが 6 個も起動してしまいます。</p>
+</div>
+<div class="listingblock">
+<div class="title">/etc/sysconfig/init</div>
+<div class="content">
+<pre>ACTIVE_CONSOLES=/dev/tty[1-6]
+↓
+ACTIVE_CONSOLES=</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>また /etc/mtab も作成する必要があります。自分で書くのが面倒だったので、特権ユーザで起動させて rc.sysinit で生成したものを利用しました。</p>
+</div>
+<div class="listingblock">
+<div class="title">/etc/mtab</div>
+<div class="content">
+<pre># cat /etc/mtab
+sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+devtmpfs /dev devtmpfs rw,nosuid,size=474792k,nr_inodes=118698,mode=755 0 0
+securityfs /sys/kernel/security securityfs rw,nosuid,nodev,noexec,relatime 0 0
+tmpfs /dev/shm tmpfs rw,nosuid,nodev 0 0
+devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000 0 0
+tmpfs /run tmpfs rw,nosuid,nodev,mode=755 0 0
+tmpfs /sys/fs/cgroup tmpfs ro,nosuid,nodev,noexec,mode=755 0 0
+cgroup /sys/fs/cgroup/systemd cgroup rw,nosuid,nodev,noexec,relatime,xattr,release_agent=/usr/lib/systemd/systemd-cgroups-agent,name=systemd 0 0
+pstore /sys/fs/pstore pstore rw,nosuid,nodev,noexec,relatime 0 0
+cgroup /sys/fs/cgroup/memory cgroup rw,nosuid,nodev,noexec,relatime,memory 0 0
+cgroup /sys/fs/cgroup/blkio cgroup rw,nosuid,nodev,noexec,relatime,blkio 0 0
+cgroup /sys/fs/cgroup/net_cls,net_prio cgroup rw,nosuid,nodev,noexec,relatime,net_cls,net_prio 0 0
+cgroup /sys/fs/cgroup/freezer cgroup rw,nosuid,nodev,noexec,relatime,freezer 0 0
+cgroup /sys/fs/cgroup/pids cgroup rw,nosuid,nodev,noexec,relatime,pids 0 0
+cgroup /sys/fs/cgroup/cpuset cgroup rw,nosuid,nodev,noexec,relatime,cpuset,clone_children 0 0
+cgroup /sys/fs/cgroup/cpu,cpuacct cgroup rw,nosuid,nodev,noexec,relatime,cpu,cpuacct 0 0
+cgroup /sys/fs/cgroup/rdma cgroup rw,nosuid,nodev,noexec,relatime,rdma 0 0
+cgroup /sys/fs/cgroup/hugetlb cgroup rw,nosuid,nodev,noexec,relatime,hugetlb 0 0
+cgroup /sys/fs/cgroup/perf_event cgroup rw,nosuid,nodev,noexec,relatime,perf_event 0 0
+cgroup /sys/fs/cgroup/devices cgroup rw,nosuid,nodev,noexec,relatime,devices 0 0
+configfs /sys/kernel/config configfs rw,relatime 0 0
+/dev/mapper/centos-root / xfs rw,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+systemd-1 /proc/sys/fs/binfmt_misc autofs rw,relatime,fd=26,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=19458 0 0
+debugfs /sys/kernel/debug debugfs rw,relatime 0 0
+hugetlbfs /dev/hugepages hugetlbfs rw,relatime,pagesize=2M 0 0
+mqueue /dev/mqueue mqueue rw,relatime 0 0
+/dev/sda1 /boot xfs rw,relatime,attr2,inode64,logbufs=8,logbsize=32k,noquota 0 0
+tmpfs /run/user/1000 tmpfs rw,nosuid,nodev,relatime,size=97784k,mode=700,uid=1000,gid=1000 0 0</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>これで CentOS 6 が非特権ユーザで起動できました。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># lxc-start --name centos6</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>お疲れ様でした。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_補足">補足</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>検証している中で LXC の動作が途中で失敗すると <code>/sys/fs/cgroup</code> にコンテナのゴミが残り再起動できなくなる問題が度々発生しました。Cgroups を操作すれば消すことはできると思うのですが調べていません。</p>
+</div>
+</div>
+</div>
+<div id="footnotes">
+<hr>
+<div class="footnote" id="_footnotedef_1">
+<a href="#_footnoteref_1">1</a>. LXC は Canonical社が支援しているだけあり RPM はありません。
+</div>
+<div class="footnote" id="_footnotedef_2">
+<a href="#_footnoteref_2">2</a>. OS再起動で直ります
+</div>
+</div>
+<div id="gitalk-container"></div>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script><link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"><script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+		<script>
+		var gitalkConfig = {"clientID":"552cbd212e71c5d6c3e0","clientSecret":"4402dc0c5c3a368fca4f5ecfe4fa69290a429207","repo":"harre-orz.github.io","owner":"harre-orz","admin":["harre-orz"],"distractionFreeMode":false};
+	    gitalkConfig.id = md5(location.pathname);
+		var gitalk = new Gitalk(gitalkConfig);
+	    gitalk.render("gitalk-container");
+	    </script>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://harre-orz.github.io/2020/02/22/20200222-lxc-centos/" data-id="cke4hlcu3000dndl22rrfcuzl" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/CentOS-6/" rel="tag">CentOS 6</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/CentOS-7/" rel="tag">CentOS 7</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/LXC/" rel="tag">LXC</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2020/02/21/20200221-lvm-mysql/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">MySQLのデータベースごとにディスク容量制限を簡単にしたい</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ansible/" rel="tag">Ansible</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AsciiDoc/" rel="tag">AsciiDoc</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-6/" rel="tag">CentOS 6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-7/" rel="tag">CentOS 7</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GARP/" rel="tag">GARP</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GitHub-Pages/" rel="tag">GitHub Pages</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hexo/" rel="tag">Hexo</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ICMPv6/" rel="tag">ICMPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IPv6/" rel="tag">IPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LVM/" rel="tag">LVM</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LXC/" rel="tag">LXC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MySQL/" rel="tag">MySQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NextCloud/" rel="tag">NextCloud</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenVAS/" rel="tag">OpenVAS</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Pelican/" rel="tag">Pelican</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/journald/" rel="tag">journald</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/memory-leak/" rel="tag">memory leak</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsync/" rel="tag">rsync</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsyslog/" rel="tag">rsyslog</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ssh/" rel="tag">ssh</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Ansible/" style="font-size: 10px;">Ansible</a> <a href="/tags/AsciiDoc/" style="font-size: 16.67px;">AsciiDoc</a> <a href="/tags/CentOS-6/" style="font-size: 10px;">CentOS 6</a> <a href="/tags/CentOS-7/" style="font-size: 20px;">CentOS 7</a> <a href="/tags/Docker/" style="font-size: 10px;">Docker</a> <a href="/tags/GARP/" style="font-size: 10px;">GARP</a> <a href="/tags/GitHub-Pages/" style="font-size: 13.33px;">GitHub Pages</a> <a href="/tags/Hexo/" style="font-size: 10px;">Hexo</a> <a href="/tags/ICMPv6/" style="font-size: 10px;">ICMPv6</a> <a href="/tags/IPv6/" style="font-size: 10px;">IPv6</a> <a href="/tags/LVM/" style="font-size: 10px;">LVM</a> <a href="/tags/LXC/" style="font-size: 10px;">LXC</a> <a href="/tags/MySQL/" style="font-size: 10px;">MySQL</a> <a href="/tags/NextCloud/" style="font-size: 10px;">NextCloud</a> <a href="/tags/OpenVAS/" style="font-size: 10px;">OpenVAS</a> <a href="/tags/Pelican/" style="font-size: 16.67px;">Pelican</a> <a href="/tags/PostgreSQL/" style="font-size: 10px;">PostgreSQL</a> <a href="/tags/journald/" style="font-size: 10px;">journald</a> <a href="/tags/memory-leak/" style="font-size: 10px;">memory leak</a> <a href="/tags/rsync/" style="font-size: 10px;">rsync</a> <a href="/tags/rsyslog/" style="font-size: 13.33px;">rsyslog</a> <a href="/tags/ssh/" style="font-size: 10px;">ssh</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/02/">February 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/04/">April 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/02/">February 2019</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2020/02/22/20200222-lxc-centos/">CentOS7のLXCでCentOS6を非特権ユーザで起動させる</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/21/20200221-lvm-mysql/">MySQLのデータベースごとにディスク容量制限を簡単にしたい</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/18/20200218-rsync/">大量のデータをrsyncで転送できない問題とその解決策</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/16/20200215-hexo/">静的サイトジェネレータをPelicanからHexoに切り替えた</a>
+          </li>
+        
+          <li>
+            <a href="/2019/04/11/20190411-centos7-rsyslog/">CentOS7のrsyslogが大量にメモリを消費する問題</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+<script data-ad-client="ca-pub-3360456910575678" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      Documentation licensed under <a href="http://creativecommons.org/licenses/by/4.0/" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>.<br />
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+  
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+  </div>
+</body>
+</html>

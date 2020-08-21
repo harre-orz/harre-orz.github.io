@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+
+  
+  <title>journaldを経由せずにrsyslogから/dev/logを使う | WindowsよりMacよりLinuxがいい</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="背景   CentOS 7 で、とあるサーバを構築し、負荷試験を実施したところ systemd-journald がCPU100%使い切っており、本来のパフォーマンスが発揮されないことが判明しました。   レガシーの syslog() で秒間数万行以上の大量のログを出力しており、systemd-journald プロセスの処理が追いつかず &#x2F;dev&#x2F;log ソケットでメッセージが詰まってしまった">
+<meta property="og:type" content="article">
+<meta property="og:title" content="journaldを経由せずにrsyslogから&#x2F;dev&#x2F;logを使う">
+<meta property="og:url" content="https://harre-orz.github.io/2019/03/16/20190316-journald/index.html">
+<meta property="og:site_name" content="WindowsよりMacよりLinuxがいい">
+<meta property="og:description" content="背景   CentOS 7 で、とあるサーバを構築し、負荷試験を実施したところ systemd-journald がCPU100%使い切っており、本来のパフォーマンスが発揮されないことが判明しました。   レガシーの syslog() で秒間数万行以上の大量のログを出力しており、systemd-journald プロセスの処理が追いつかず &#x2F;dev&#x2F;log ソケットでメッセージが詰まってしまった">
+<meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2019-03-15T15:00:00.000Z">
+<meta property="article:modified_time" content="2020-08-21T16:47:16.263Z">
+<meta property="article:author" content="harre.orz">
+<meta property="article:tag" content="CentOS 7">
+<meta property="article:tag" content="journald">
+<meta property="article:tag" content="rsyslog">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="WindowsよりMacよりLinuxがいい" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+<meta name="generator" content="Hexo 4.2.1"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">WindowsよりMacよりLinuxがいい</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+          <a id="nav-rss-link" class="nav-icon" href="/atom.xml" title="RSS Feed"></a>
+        
+        <a id="nav-search-btn" class="nav-icon" title="Search"></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://harre-orz.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+      <div class="outer">
+        <section id="main"><article id="post-20190316-journald" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2019/03/16/20190316-journald/" class="article-date">
+  <time datetime="2019-03-15T15:00:00.000Z" itemprop="datePublished">2019-03-16</time>
+</a>
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="article-title" itemprop="name">
+      journaldを経由せずにrsyslogから/dev/logを使う
+    </h1>
+  
+
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <div class="sect1">
+<h2 id="_背景">背景</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>CentOS 7 で、とあるサーバを構築し、負荷試験を実施したところ systemd-journald がCPU100%使い切っており、本来のパフォーマンスが発揮されないことが判明しました。</p>
+</div>
+<div class="paragraph">
+<p>レガシーの syslog() で秒間数万行以上の大量のログを出力しており、systemd-journald プロセスの処理が追いつかず /dev/log ソケットでメッセージが詰まってしまったことが原因でした。</p>
+</div>
+<div class="paragraph">
+<p>根本的な原因は syslog() で大量のログを出力していることにあるのですが、systemd-journald も結局は rsyslog に転送してログファイルに書き出しているだけなので、ボトルネックになってほしくはありません。</p>
+</div>
+<div class="paragraph">
+<p>systemd-journald が高負荷になった原因については、詳しくは調べていません。おそらくはメッセージの付属情報の取得やバイナリデータ用のデータベースへの書き込みなどの処理にあると思っています。</p>
+</div>
+<div class="paragraph">
+<p>また、syslog() は、rsyslog でログファイルに書き込んでいます。そのため、systemd-journald のバイナリログと rsyslog のログファイルの両方に保存していることなるので systemd-journald を経由することは、はっきり言って無駄な処理となっています。</p>
+</div>
+<div class="paragraph">
+<p>そのため、sytemd-journald を経由せずに直接 rsyslog で /dev/log を使う設定を調査しました。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_設定">設定</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>/dev/log は Datagram ベースの UNIX-domain socket です。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># fuser -v /dev/log
+                     USER        PID ACCESS COMMAND
+/dev/log
+                     root          1 F.... systemd
+                     root       6277 F.... systemd-journal
+
+# netstat -x | grep dev
+unix  3      [ ]         DGRAM                    103043   /dev/log</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>systemd-journald.socket ファイルの /dev/log をコメントアウトします。</p>
+</div>
+<div class="listingblock">
+<div class="title">/usr/lib/systemd/system/systemd-journald.socket</div>
+<div class="content">
+<pre>[Socket]
+ListenStream=/run/systemd/journal/stdout
+ListenDatagram=/run/systemd/journal/socket
+#ListenDatagram=/dev/log  #コメントアウト</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>rsyslog の SystemLogSocketName を設定を変更します。</p>
+</div>
+<div class="listingblock">
+<div class="title">/etc/rsyslog.d/listen.conf</div>
+<div class="content">
+<pre>#$SystemLogSocketName /run/systemd/journal/syslog  #コメントアウト
+$SystemLogSocketName /dev/log                      #デフォルト値なので記述しなくてもいいのですが、書いたほうが分かりやすいと思います</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>rsyslog の設定を変更します。</p>
+</div>
+<div class="listingblock">
+<div class="title">/etc/rsyslog.conf</div>
+<div class="content">
+<pre>$ModLoad imuxsock                    #アンコメント
+#$ModLoad imjournal                  #コメントアウト
+$OmitLocalLogging off                #off に変更
+#$IMJournalStateFile imjournal.state #コメントアウト
+
+#$imjournalRatelimitInterval 0       #記述した場合はコメントアウト
+#$imjournalRatelimitBurst 0          #記述した場合はコメントアウト</pre>
+</div>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>詳細 <a href="https://www.rsyslog.com/doc/v8-stable/configuration/modules/imuxsock.html" target="_blank" rel="noopener" class="bare">https://www.rsyslog.com/doc/v8-stable/configuration/modules/imuxsock.html</a></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>systemd-journald と rsyslogd の再起動します。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># systemctl restart rsyslog
+# systemctl status rsyslog
+→status でエラーがないことを確認。
+
+# systemctl restart systemd-journald
+# systemctl status systemd-journald
+→status でエラーがないことを確認。</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>/dev/log を掴んでいるプロセスを確認します。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># fuser -v /dev/log
+                     USER        PID ACCESS COMMAND
+/dev/log
+                     root          1 F.... systemd
+                     root       9218 F.... rsyslog
+                     root       9234 F.... systemd-journal</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>systemd-jounral が /dev/log を掴んだままであれば、OS再起動をします。</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre># reboot
+
+... 再起動後...
+
+# fuser -v /dev/log
+                     USER        PID ACCESS COMMAND
+/dev/log
+                     root          1 F.... systemd
+                     root        128 F.... rsyslog</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>これで rsyslog で直接 /dev/log を取得できるようになりました。</p>
+</div>
+<div class="paragraph">
+<p>sytemd-journald 自体のログ収集は止めていないため モダンな /run/systemd/journal/socket ソケットからのログは journalctl で検索可能です。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_補足">補足</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>この方法は、おそらく CentOS 7 でしか利用できません。別のディストビューションの場合、/dev/log は /run/systemd/journal/dev-log のシンボリックリンクになっている場合があります。</p>
+</div>
+</div>
+</div>
+<div id="gitalk-container"></div>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script><link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"><script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+
+		<script>
+		var gitalkConfig = {"clientID":"552cbd212e71c5d6c3e0","clientSecret":"4402dc0c5c3a368fca4f5ecfe4fa69290a429207","repo":"harre-orz.github.io","owner":"harre-orz","admin":["harre-orz"],"distractionFreeMode":false};
+	    gitalkConfig.id = md5(location.pathname);
+		var gitalk = new Gitalk(gitalkConfig);
+	    gitalk.render("gitalk-container");
+	    </script>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://harre-orz.github.io/2019/03/16/20190316-journald/" data-id="cke4hlctu0008ndl21omn1jdy" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/CentOS-7/" rel="tag">CentOS 7</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/journald/" rel="tag">journald</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/rsyslog/" rel="tag">rsyslog</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2019/04/01/20190401-nextcloud/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Newer</strong>
+      <div class="article-nav-title">
+        
+          docker+nextcloudで構築するときDBを初期化できないときの対処法
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2019/02/18/20190218-ndsend/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">IPv6でGARPみたいなパケットを投げる</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tags</h3>
+    <div class="widget">
+      <ul class="tag-list" itemprop="keywords"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Ansible/" rel="tag">Ansible</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/AsciiDoc/" rel="tag">AsciiDoc</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-6/" rel="tag">CentOS 6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/CentOS-7/" rel="tag">CentOS 7</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Docker/" rel="tag">Docker</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GARP/" rel="tag">GARP</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/GitHub-Pages/" rel="tag">GitHub Pages</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Hexo/" rel="tag">Hexo</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ICMPv6/" rel="tag">ICMPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/IPv6/" rel="tag">IPv6</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LVM/" rel="tag">LVM</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/LXC/" rel="tag">LXC</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/MySQL/" rel="tag">MySQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/NextCloud/" rel="tag">NextCloud</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/OpenVAS/" rel="tag">OpenVAS</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Pelican/" rel="tag">Pelican</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/PostgreSQL/" rel="tag">PostgreSQL</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/journald/" rel="tag">journald</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/memory-leak/" rel="tag">memory leak</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsync/" rel="tag">rsync</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/rsyslog/" rel="tag">rsyslog</a></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ssh/" rel="tag">ssh</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Tag Cloud</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Ansible/" style="font-size: 10px;">Ansible</a> <a href="/tags/AsciiDoc/" style="font-size: 16.67px;">AsciiDoc</a> <a href="/tags/CentOS-6/" style="font-size: 10px;">CentOS 6</a> <a href="/tags/CentOS-7/" style="font-size: 20px;">CentOS 7</a> <a href="/tags/Docker/" style="font-size: 10px;">Docker</a> <a href="/tags/GARP/" style="font-size: 10px;">GARP</a> <a href="/tags/GitHub-Pages/" style="font-size: 13.33px;">GitHub Pages</a> <a href="/tags/Hexo/" style="font-size: 10px;">Hexo</a> <a href="/tags/ICMPv6/" style="font-size: 10px;">ICMPv6</a> <a href="/tags/IPv6/" style="font-size: 10px;">IPv6</a> <a href="/tags/LVM/" style="font-size: 10px;">LVM</a> <a href="/tags/LXC/" style="font-size: 10px;">LXC</a> <a href="/tags/MySQL/" style="font-size: 10px;">MySQL</a> <a href="/tags/NextCloud/" style="font-size: 10px;">NextCloud</a> <a href="/tags/OpenVAS/" style="font-size: 10px;">OpenVAS</a> <a href="/tags/Pelican/" style="font-size: 16.67px;">Pelican</a> <a href="/tags/PostgreSQL/" style="font-size: 10px;">PostgreSQL</a> <a href="/tags/journald/" style="font-size: 10px;">journald</a> <a href="/tags/memory-leak/" style="font-size: 10px;">memory leak</a> <a href="/tags/rsync/" style="font-size: 10px;">rsync</a> <a href="/tags/rsyslog/" style="font-size: 13.33px;">rsyslog</a> <a href="/tags/ssh/" style="font-size: 10px;">ssh</a>
+    </div>
+  </div>
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Archives</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2020/02/">February 2020</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/04/">April 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/03/">March 2019</a></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2019/02/">February 2019</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">Recent Posts</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2020/02/22/20200222-lxc-centos/">CentOS7のLXCでCentOS6を非特権ユーザで起動させる</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/21/20200221-lvm-mysql/">MySQLのデータベースごとにディスク容量制限を簡単にしたい</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/18/20200218-rsync/">大量のデータをrsyncで転送できない問題とその解決策</a>
+          </li>
+        
+          <li>
+            <a href="/2020/02/16/20200215-hexo/">静的サイトジェネレータをPelicanからHexoに切り替えた</a>
+          </li>
+        
+          <li>
+            <a href="/2019/04/11/20190411-centos7-rsyslog/">CentOS7のrsyslogが大量にメモリを消費する問題</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+<script data-ad-client="ca-pub-3360456910575678" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      Documentation licensed under <a href="http://creativecommons.org/licenses/by/4.0/" rel="external nofollow noreferrer" target="_blank">CC BY 4.0</a>.<br />
+      Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
+
+
+  
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.css">
+
+  
+<script src="/fancybox/jquery.fancybox.pack.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+  </div>
+</body>
+</html>
