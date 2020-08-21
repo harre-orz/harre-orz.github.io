@@ -100,7 +100,7 @@ theme: landscape
 deploy:
   type: git
   repo: git@github.com:harre-orz/harre-orz.github.io
-  branch: master
+  branch: gh-pages
 
 plugins:
   gitalk:
