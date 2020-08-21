@@ -5,14 +5,19 @@
   
 
   
-  <title>Tag: GARP | WindowsよりMacよりLinuxがいい</title>
+  <title>SSHをプロキシするsshpiperの紹介 | WindowsよりMacよりLinuxがいい</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-  <meta property="og:type" content="website">
-<meta property="og:title" content="WindowsよりMacよりLinuxがいい">
-<meta property="og:url" content="https://harre-orz.github.io/tags/GARP/index.html">
+  <meta name="description" content="sshpiper とは   sshpiper は https:&#x2F;&#x2F;github.com&#x2F;tg123&#x2F;sshpiper が開発しているSSLプロキシサーバです。SSHのユーザ名をキーにして別のSSHホストにプロキシすることができます。   最近のクラウド・仮想化によりサーバが直接インターネットに接続していない場合に有効そうだったので確認しました。 なお、インストール方法は、GitHub に丁寧に記">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SSHをプロキシするsshpiperの紹介">
+<meta property="og:url" content="https://harre-orz.github.io/2020/08/22/20200822-sshpiper/index.html">
 <meta property="og:site_name" content="WindowsよりMacよりLinuxがいい">
+<meta property="og:description" content="sshpiper とは   sshpiper は https:&#x2F;&#x2F;github.com&#x2F;tg123&#x2F;sshpiper が開発しているSSLプロキシサーバです。SSHのユーザ名をキーにして別のSSHホストにプロキシすることができます。   最近のクラウド・仮想化によりサーバが直接インターネットに接続していない場合に有効そうだったので確認しました。 なお、インストール方法は、GitHub に丁寧に記">
 <meta property="og:locale" content="en_US">
+<meta property="article:published_time" content="2020-08-21T15:00:00.000Z">
+<meta property="article:modified_time" content="2020-08-21T18:04:56.779Z">
 <meta property="article:author" content="harre.orz">
+<meta property="article:tag" content="ssh">
 <meta name="twitter:card" content="summary">
   
     <link rel="alternate" href="/atom.xml" title="WindowsよりMacよりLinuxがいい" type="application/atom+xml">
@@ -60,40 +65,85 @@
   </div>
 </header>
       <div class="outer">
-        <section id="main">
-  
-  
-    
-    
-      
-      
-      <section class="archives-wrap">
-        <div class="archive-year-wrap">
-          <a href="/archives/2019" class="archive-year">2019</a>
-        </div>
-        <div class="archives">
-    
-    <article class="archive-article archive-type-post">
-  <div class="archive-article-inner">
-    <header class="archive-article-header">
-      <a href="/2019/02/18/20190218-ndsend/" class="archive-article-date">
-  <time datetime="2019-02-17T15:00:00.000Z" itemprop="datePublished">Feb 18</time>
+        <section id="main"><article id="post-20200822-sshpiper" class="article article-type-post" itemscope itemprop="blogPost">
+  <div class="article-meta">
+    <a href="/2020/08/22/20200822-sshpiper/" class="article-date">
+  <time datetime="2020-08-21T15:00:00.000Z" itemprop="datePublished">2020-08-22</time>
 </a>
-      
+    
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
   
-    <h1 itemprop="name">
-      <a class="archive-article-title" href="/2019/02/18/20190218-ndsend/">IPv6でGARPみたいなパケットを投げる</a>
+    <h1 class="article-title" itemprop="name">
+      SSHをプロキシするsshpiperの紹介
     </h1>
   
 
-    </header>
-  </div>
-</article>
-  
-  
-    </div></section>
-  
+      </header>
+    
+    <div class="article-entry" itemprop="articleBody">
+      
+        <div class="sect1">
+<h2 id="_sshpiper_とは">sshpiper とは</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>sshpiper は <a href="https://github.com/tg123/sshpiper" target="_blank" rel="noopener" class="bare">https://github.com/tg123/sshpiper</a> が開発しているSSLプロキシサーバです。SSHのユーザ名をキーにして別のSSHホストにプロキシすることができます。</p>
+</div>
+<div class="paragraph">
+<p>最近のクラウド・仮想化によりサーバが直接インターネットに接続していない場合に有効そうだったので確認しました。
+なお、インストール方法は、GitHub に丁寧に記載されていますので割愛します。</p>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_動作について">動作について</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>sshpiper 自身にはパスワード認証はなく、プロキシ先のサーバが存在してパスワード要求している場合にパスワード要求をプロキシします。
+ただし、公開鍵暗号方式を利用する場合は、接続元ホストの公開鍵を sshpiper に設定し、sshpiper の秘密鍵を プロキシ先のホストに設定する必要があります。</p>
+</div>
+<div class="paragraph">
+<p>ポートフォワーディングなどもプロキシするので、SSHを踏み台する場合だと複雑な工程になる省略することもできます。</p>
+</div>
+</div>
+</div>
+<div id="gitalk-container"></div>
+<script src="https://cdn.bootcss.com/blueimp-md5/2.12.0/js/md5.min.js"></script><link rel="stylesheet" href="https://unpkg.com/gitalk/dist/gitalk.css"><script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
 
+		<script>
+		var gitalkConfig = {"clientID":"552cbd212e71c5d6c3e0","clientSecret":"4402dc0c5c3a368fca4f5ecfe4fa69290a429207","repo":"harre-orz.github.io","owner":"harre-orz","admin":["harre-orz"],"distractionFreeMode":false};
+	    gitalkConfig.id = md5(location.pathname);
+		var gitalk = new Gitalk(gitalkConfig);
+	    gitalk.render("gitalk-container");
+	    </script>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://harre-orz.github.io/2020/08/22/20200822-sshpiper/" data-id="cke4jom9j0000wzl2djmy0ufw" class="article-share-link">Share</a>
+      
+      
+  <ul class="article-tag-list" itemprop="keywords"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/ssh/" rel="tag">ssh</a></li></ul>
+
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+  
+    <a href="/2020/02/22/20200222-lxc-centos/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">Older</strong>
+      <div class="article-nav-title">CentOS7のLXCでCentOS6を非特権ユーザで起動させる</div>
+    </a>
+  
+</nav>
+
+  
+</article>
 
 </section>
         
